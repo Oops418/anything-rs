@@ -1,0 +1,3 @@
+[workspace]
+resolver = "3"
+members = ["crates/indexify", "crates/logger", "crates/vaultify", "ignition"]
