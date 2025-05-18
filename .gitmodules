@@ -1,0 +1,3 @@
+[submodule "crates/dependencies/tantivy-jieba"]
+	path = crates/dependencies/tantivy-jieba
+	url = git@github.com:jiegec/tantivy-jieba.git

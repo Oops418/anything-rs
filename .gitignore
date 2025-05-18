@@ -1,6 +1,7 @@
 debug/
 target/
 **/*.rs.bk
+chinese/
 
 # Apple
 .DS_Store
