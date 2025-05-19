@@ -1,0 +1,10 @@
+[package]
+name = "facade"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.98"
+rust-embed = "8.7.2"
+gpui = { git = "https://github.com/huacnlee/zed.git", branch = "webview" }
+gpui-component = { git = "https://github.com/longbridge/gpui-component.git" }
