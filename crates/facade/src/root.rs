@@ -1,6 +1,5 @@
 use gpui::{
-    AnyView, AppContext, Context, Entity, IntoElement, ParentElement, Render, SharedString, Styled,
-    Window, div,
+    AnyView, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div,
 };
 use gpui_component::{Root, v_flex};
 use title_bar::FacadeTitleBar;
@@ -13,13 +12,8 @@ pub struct FacadeRoot {
 }
 
 impl FacadeRoot {
-    pub fn new(
-        title: impl Into<SharedString>,
-        view: impl Into<AnyView>,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> Self {
-        let title_bar = cx.new(|cx| FacadeTitleBar::new(title, window, cx));
+    pub fn new(view: impl Into<AnyView>, window: &mut Window, cx: &mut Context<Self>) -> Self {
+        let title_bar = cx.new(|cx| FacadeTitleBar::new(window, cx));
         Self {
             title_bar,
             view: view.into(),

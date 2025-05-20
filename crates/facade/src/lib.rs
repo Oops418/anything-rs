@@ -1,5 +1,5 @@
+use anything_list::AnythingList;
 use asset::Assets;
-use demo::HelloWorld;
 use gpui::{
     AnyView, App, AppContext, Application, Bounds, KeyBinding, Menu, MenuItem, SharedString,
     Window, WindowBounds, WindowKind, WindowOptions, actions, px, size,
@@ -10,6 +10,8 @@ use gpui_component::{
 };
 use root::FacadeRoot;
 
+mod anything_list;
+mod anything_list_item;
 mod asset;
 mod demo;
 mod root;
@@ -38,7 +40,7 @@ impl Facade {
             let window = cx
                 .open_window(options, |window, cx: &mut App| {
                     let view = crate_view_fn(window, cx);
-                    let root = cx.new(|cx| FacadeRoot::new(title.clone(), view, window, cx));
+                    let root = cx.new(|cx| FacadeRoot::new(view, window, cx));
 
                     cx.new(|cx| Root::new(root.into(), window, cx))
                 })
@@ -121,6 +123,6 @@ pub fn setup() {
     app.run(|cx: &mut App| {
         Facade::init(cx);
 
-        Facade::create_new_window("Anything", HelloWorld::view, cx);
+        Facade::create_new_window("Anything", AnythingList::view, cx);
     });
 }
