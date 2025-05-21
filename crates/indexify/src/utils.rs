@@ -15,6 +15,7 @@ use tantivy::{
     tokenizer::{NgramTokenizer, SimpleTokenizer, TokenStream, Tokenizer},
 };
 use tantivy_jieba::JiebaTokenizer;
+use vaultify::VAULTIFY;
 use whichlang::{Lang, detect_language};
 
 pub static TANTIVY_INDEX: Lazy<TantivyIndex> = Lazy::new(|| {
@@ -46,7 +47,7 @@ impl TantivyIndex {
         // schema_builder.add_bytes_field("if_folder", STORED);
         let schema = schema_builder.build();
 
-        let index_path = vaultify::get("tantivy_path").unwrap();
+        let index_path = VAULTIFY.get("tantivy_path").unwrap();
         let index = match Index::open_in_dir(&index_path) {
             Ok(index) => index,
             Err(_) => {
@@ -55,7 +56,10 @@ impl TantivyIndex {
                     panic!("Failed to create directory at {}: {}", &index_path, e);
                 }
                 match Index::create_in_dir(&index_path, schema.clone()) {
-                    Ok(index) => index,
+                    Ok(index) => {
+                        tracing::debug!("Index created at {}", &index_path);
+                        index
+                    }
                     Err(create_error) => {
                         panic!(
                             "Failed to create index at {} after failing to open: {}",

@@ -1,18 +1,15 @@
 use core::str;
 use gpui::{
-    AnyElement, App, ClickEvent, Context, Edges, InteractiveElement, IntoElement, ParentElement,
-    Pixels, SharedString, StatefulInteractiveElement, Styled, Task, Timer, Window, div,
-    impl_internal_actions, px,
+    AnyElement, App, Context, IntoElement, ParentElement, Pixels, SharedString, Styled, Timer,
+    Window, div, impl_internal_actions,
 };
 use gpui_component::{
-    ActiveTheme, Size, StyleSized, green,
-    list::{List, ListDelegate},
-    popup_menu::PopupMenu,
-    red,
+    ActiveTheme, Size, green, red,
     table::{self, ColFixed, ColSort, Table, TableDelegate},
 };
 use serde::Deserialize;
-use std::{any::Any, ops::Range, time::Duration};
+use std::{any::Any, ops::Range, string, time::Duration};
+use vaultify::VAULTIFY;
 
 use super::anything_item::{Column, Something};
 
@@ -30,12 +27,13 @@ pub struct AnythingTableDelegate {
     pub col_order: bool,
     pub col_sort: bool,
     pub loading: bool,
+    pub indexed: bool,
 }
 
 impl AnythingTableDelegate {
-    pub fn new(size: usize) -> Self {
+    pub fn new() -> Self {
         Self {
-            anything: Something::random_something(size),
+            anything: vec![],
             columns: vec![
                 Column::new("id", "ID", None),
                 Column::new("name", "Name", None),
@@ -45,6 +43,7 @@ impl AnythingTableDelegate {
             col_order: true,
             col_sort: true,
             loading: false,
+            indexed: string_to_bool(VAULTIFY.get("indexed").unwrap()).unwrap(),
         }
     }
 
@@ -109,6 +108,14 @@ impl TableDelegate for AnythingTableDelegate {
         } else {
             None
         }
+    }
+
+    fn loading(&self, _: &App) -> bool {
+        !self.indexed
+    }
+
+    fn can_load_more(&self, cx: &App) -> bool {
+        false
     }
 
     fn render_td(
@@ -187,22 +194,32 @@ impl TableDelegate for AnythingTableDelegate {
         150
     }
 
-    fn load_more(&mut self, _: &mut Window, cx: &mut Context<Table<Self>>) {
+    fn load_more(&mut self, _: &mut Window, _cx: &mut Context<Table<Self>>) {
         self.loading = true;
+        println!("Loading more data...");
+        self.loading = false;
 
-        cx.spawn(async move |view, cx| {
-            // Simulate network request, delay 1s to load data.
-            Timer::after(Duration::from_secs(1)).await;
+        // cx.spawn(async move |view, cx| {
+        //     // Simulate network request, delay 1s to load data.
+        //     Timer::after(Duration::from_secs(1)).await;
 
-            cx.update(|cx| {
-                let _ = view.update(cx, |view, _| {
-                    view.delegate_mut()
-                        .anything
-                        .extend(Something::random_something(200));
-                    view.delegate_mut().loading = false;
-                });
-            })
-        })
-        .detach();
+        //     cx.update(|cx| {
+        //         let _ = view.update(cx, |view, _| {
+        //             view.delegate_mut()
+        //                 .anything
+        //                 .extend(Something::random_something(200));
+        //             view.delegate_mut().loading = false;
+        //         });
+        //     })
+        // })
+        // .detach();
+    }
+}
+
+pub fn string_to_bool(s: String) -> Option<bool> {
+    match s.as_str() {
+        "true" => Some(true),
+        "false" => Some(false),
+        _ => None,
     }
 }

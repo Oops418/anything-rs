@@ -1,12 +1,12 @@
 mod utils;
 
-use std::{
-    thread::{self, sleep},
-    time::{Duration, SystemTime},
-};
+use std::thread;
+use std::time::{Duration, SystemTime};
 
 use crossbeam_channel::{Receiver, Sender};
 use utils::TANTIVY_INDEX;
+use vaultify::VAULTIFY;
+use vaultify::Vaultify;
 
 use facade::component::anything_item::Something;
 
@@ -43,9 +43,21 @@ pub fn index_search(query: &str) -> Vec<Something> {
     TANTIVY_INDEX.search(query).unwrap()
 }
 
+pub fn init_index() {
+    if VAULTIFY.get("indexed").unwrap() == "true" {
+        tracing::debug!("index already initialized");
+        return;
+    } else {
+        index_files("/Users/kxyang/Personal/CodeSpaces/anything-rs");
+        VAULTIFY.set("indexed", "true".to_string()).unwrap();
+        tracing::debug!("index initialized successfully");
+    }
+}
+
 pub fn init_service(request_reciver: Receiver<String>, data_sender: Sender<Vec<Something>>) {
     thread::spawn(move || {
         loop {
+            init_index();
             let request_query = request_reciver.recv().unwrap();
             let results = index_search(request_query.as_str());
             data_sender.send(results).unwrap();

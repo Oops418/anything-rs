@@ -1,4 +1,4 @@
-use std::time;
+use std::{thread::sleep, time};
 
 use crossbeam_channel::{Receiver, Sender};
 use fake::Fake;
@@ -17,7 +17,12 @@ use gpui_component::{
     v_flex,
 };
 
-use crate::component::{anything_item::Something, anything_table::AnythingTableDelegate};
+use vaultify::VAULTIFY;
+
+use crate::component::{
+    anything_item::Something,
+    anything_table::{AnythingTableDelegate, string_to_bool},
+};
 
 pub struct TableView {
     table: Entity<Table<AnythingTableDelegate>>,
@@ -45,10 +50,9 @@ impl TableView {
         request_sender: Sender<String>,
         data_reciver: Receiver<Vec<Something>>,
     ) -> Self {
-        // Create the number input field with validation for positive integers
         let query_input = cx.new(|cx| InputState::new(window, cx).placeholder("file name..."));
 
-        let delegate = AnythingTableDelegate::new(20);
+        let delegate = AnythingTableDelegate::new();
         let table = cx.new(|cx| Table::new(delegate, window, cx));
 
         cx.subscribe_in(&table, window, Self::on_table_event)
@@ -56,34 +60,24 @@ impl TableView {
         cx.subscribe_in(&query_input, window, Self::on_query_input_change)
             .detach();
 
-        // Spawn a background to random refresh the list
         cx.spawn(async move |this, cx| {
-            loop {
-                Timer::after(time::Duration::from_millis(33)).await;
-
-                this.update(cx, |this, cx| {
-                    if !this.refresh_data {
-                        return;
-                    }
-
-                    this.table.update(cx, |table, _| {
-                        table
-                            .delegate_mut()
-                            .anything
-                            .iter_mut()
-                            .enumerate()
-                            .for_each(|(i, stock)| {
-                                let n = (3..10).fake::<usize>();
-                                // update 30% of the stocks
-                                if i % n == 0 {
-                                    stock.random_update();
-                                }
-                            });
+            this.update(cx, |this, cx| {
+                this.table
+                    .update(cx, |table: &mut Table<AnythingTableDelegate>, _| {
+                        println!(
+                            "the first time access indexed in ui: {}",
+                            table.delegate().indexed
+                        );
+                        while !table.delegate().indexed {
+                            table.delegate_mut().indexed =
+                                string_to_bool(VAULTIFY.get("indexed").unwrap()).unwrap();
+                            println!("indexed: {}", table.delegate().indexed);
+                            sleep(std::time::Duration::from_secs(1));
+                        }
                     });
-                    cx.notify();
-                })
-                .ok();
-            }
+                cx.notify();
+            })
+            .ok();
         })
         .detach();
 
