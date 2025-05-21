@@ -1,15 +1,11 @@
 use once_cell::sync::Lazy;
 use redb::{Database, Error, TableDefinition};
 
-static CONFIG_PATH: Lazy<&str> = Lazy::new(|| {
-    tracing::debug!("Initializing config path...");
-    "/Users/kxyang/Personal/CodeSpaces/anything-rs/anything.redb"
-});
+static CONFIG_PATH: Lazy<&str> =
+    Lazy::new(|| "/Users/kxyang/Personal/CodeSpaces/anything-rs/anything.redb");
 
-static TANTIVY_PATH: Lazy<&str> = Lazy::new(|| {
-    tracing::debug!("Initializing tantivy path...");
-    "/Users/kxyang/Personal/CodeSpaces/anything-rs/tantivy"
-});
+static TANTIVY_PATH: Lazy<&str> =
+    Lazy::new(|| "/Users/kxyang/Personal/CodeSpaces/anything-rs/tantivy-test");
 
 pub fn init_vault() {
     set("config_path", String::from(*CONFIG_PATH)).expect("Failed to set config_path");

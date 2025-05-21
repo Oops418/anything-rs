@@ -1,8 +1,10 @@
-use anything_list::AnythingList;
+use anything_view::AnythingView;
 use asset::Assets;
+use component::anything_item::Something;
+use crossbeam_channel::{Receiver, Sender};
 use gpui::{
-    AnyView, App, AppContext, Application, Bounds, KeyBinding, Menu, MenuItem, SharedString,
-    Window, WindowBounds, WindowKind, WindowOptions, actions, px, size,
+    App, AppContext, Application, Bounds, KeyBinding, Menu, MenuItem, Window, WindowBounds,
+    WindowKind, WindowOptions, actions, px, size,
 };
 use gpui_component::{
     Root, TitleBar,
@@ -10,46 +12,52 @@ use gpui_component::{
 };
 use root::FacadeRoot;
 
-mod anything_list;
-mod anything_list_item;
+mod anything_table_view;
+mod anything_view;
 mod asset;
-mod demo;
+pub mod component;
+mod demo_table_view;
 mod root;
 mod title_bar;
 
 actions!(facade, [Quit, Hide]);
 
-struct Facade {}
+pub fn setup(request_sender: Sender<String>, data_reciver: Receiver<Vec<Something>>) {
+    let app = Application::new().with_assets(Assets);
+    app.run(|cx: &mut App| {
+        gpui_component::init(cx);
+        Facade::shortcut_binding_init(cx);
+        Facade::menu_init(cx);
+
+        cx.activate(true);
+        let window_options = Facade::window_options_init(cx);
+        Facade::windows_async_init(cx, window_options, request_sender, data_reciver);
+    });
+}
+
+struct Facade();
 
 impl Facade {
-    fn init(cx: &mut App) {
-        gpui_component::init(cx);
-        Self::shortcut_binding_init(cx);
-        Self::menu_init(cx);
-        cx.activate(true);
-    }
-
-    fn create_new_window<F, E>(title: &str, crate_view_fn: F, cx: &mut App)
-    where
-        E: Into<AnyView>,
-        F: FnOnce(&mut Window, &mut App) -> E + Send + 'static,
-    {
-        let options = Self::window_options_init(cx);
-        let title = SharedString::from(title.to_string());
+    fn windows_async_init(
+        cx: &mut App,
+        windows_options: WindowOptions,
+        request_sender: Sender<String>,
+        data_reciver: Receiver<Vec<Something>>,
+    ) {
         cx.spawn(async move |cx| {
             let window = cx
-                .open_window(options, |window, cx: &mut App| {
-                    let view = crate_view_fn(window, cx);
-                    let root = cx.new(|cx| FacadeRoot::new(view, window, cx));
+                .open_window(windows_options, |window, cx: &mut App| {
+                    let view = AnythingView::create(window, cx, request_sender, data_reciver);
+                    let root = cx.new(|cx| FacadeRoot::create(view, window, cx));
 
                     cx.new(|cx| Root::new(root.into(), window, cx))
                 })
                 .expect("failed to open window");
 
             window
-                .update(cx, |_, window, _| {
+                .update(cx, |_, window: &mut Window, _| {
                     window.activate_window();
-                    window.set_window_title(&title);
+                    window.set_window_title("Anything");
                 })
                 .expect("failed to update window");
 
@@ -115,14 +123,4 @@ impl Facade {
             ..Default::default()
         }
     }
-}
-
-pub fn setup() {
-    let app = Application::new().with_assets(Assets);
-
-    app.run(|cx: &mut App| {
-        Facade::init(cx);
-
-        Facade::create_new_window("Anything", AnythingList::view, cx);
-    });
 }

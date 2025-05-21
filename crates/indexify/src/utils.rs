@@ -1,3 +1,4 @@
+use facade::component::anything_item::Something;
 use jwalk::{WalkDir, WalkDirGeneric};
 use once_cell::sync::Lazy;
 use std::fs;
@@ -7,7 +8,10 @@ use tantivy::{
     collector::TopDocs,
     doc,
     query::{Query, QueryParser},
-    schema::{IndexRecordOption, STORED, Schema, TEXT, TextFieldIndexing, TextOptions},
+    schema::{
+        IndexRecordOption, STORED, Schema, TEXT, TextFieldIndexing, TextOptions, Value,
+        document::{ReferenceValue, ReferenceValueLeaf},
+    },
     tokenizer::{NgramTokenizer, SimpleTokenizer, TokenStream, Tokenizer},
 };
 use tantivy_jieba::JiebaTokenizer;
@@ -91,8 +95,9 @@ impl TantivyIndex {
         Ok(())
     }
 
-    pub fn search(&self, query: &str) -> Result<(), TantivyError> {
+    pub fn search(&self, query: &str) -> Result<Vec<Something>, TantivyError> {
         tracing::debug!("Searching for {}", query);
+        let mut results = vec![];
         let searcher = self.index_reader.searcher();
         let query_parser =
             QueryParser::for_index(&self.index, vec![self.schema.get_field("name").unwrap()]);
@@ -100,11 +105,52 @@ impl TantivyIndex {
 
         let top_docs = searcher.search(&query, &TopDocs::with_limit(10))?;
         tracing::debug!("Found {} results", top_docs.len());
-        for (_score, doc_address) in top_docs {
-            let retrieved_doc: TantivyDocument = searcher.doc(doc_address)?;
-            println!("{}", retrieved_doc.to_json(&self.schema));
+
+        for (id, (_score, doc_address)) in top_docs.iter().enumerate() {
+            let retrieved_doc: TantivyDocument = searcher.doc(*doc_address)?;
+
+            // Extract name and path from the document
+            let name_field = self.schema.get_field("name").unwrap();
+            let path_field = self.schema.get_field("path").unwrap();
+
+            let name = retrieved_doc
+                .get_first(name_field)
+                .and_then(|field_value| {
+                    if let ReferenceValue::Leaf(ReferenceValueLeaf::Str(text)) =
+                        field_value.as_value()
+                    {
+                        Some(text)
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or_default();
+
+            let path = retrieved_doc
+                .get_first(path_field)
+                .and_then(|field_value| {
+                    if let ReferenceValue::Leaf(ReferenceValueLeaf::Str(text)) =
+                        field_value.as_value()
+                    {
+                        Some(text)
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or_default();
+
+            // Generate random usage between 0.0 and 1.0
+            let usage: f64 = id as f64 + 3.0;
+
+            // Create Something instance with unique ID based on position in results
+            results.push(Something {
+                id,
+                name: String::from(name).into(),
+                path: String::from(path).into(),
+                usage,
+            });
         }
-        Ok(())
+        Ok(results)
     }
 
     pub fn get_num_docs(&self) -> u64 {

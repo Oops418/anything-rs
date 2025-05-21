@@ -12,7 +12,7 @@ pub struct FacadeRoot {
 }
 
 impl FacadeRoot {
-    pub fn new(view: impl Into<AnyView>, window: &mut Window, cx: &mut Context<Self>) -> Self {
+    pub fn create(view: impl Into<AnyView>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let title_bar = cx.new(|cx| FacadeTitleBar::new(window, cx));
         Self {
             title_bar,

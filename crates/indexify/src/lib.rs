@@ -1,8 +1,14 @@
 mod utils;
 
-use std::time::SystemTime;
+use std::{
+    thread::{self, sleep},
+    time::{Duration, SystemTime},
+};
 
+use crossbeam_channel::{Receiver, Sender};
 use utils::TANTIVY_INDEX;
+
+use facade::component::anything_item::Something;
 
 pub fn index_files(path: &str) {
     let files = utils::get_files(path).unwrap();
@@ -33,7 +39,17 @@ pub fn index_files(path: &str) {
     );
 }
 
-pub fn index_search(query: &str) {
-    let index = TANTIVY_INDEX.search(query).unwrap();
-    println!("{:?}", index);
+pub fn index_search(query: &str) -> Vec<Something> {
+    TANTIVY_INDEX.search(query).unwrap()
+}
+
+pub fn init_service(request_reciver: Receiver<String>, data_sender: Sender<Vec<Something>>) {
+    thread::spawn(move || {
+        loop {
+            let request_query = request_reciver.recv().unwrap();
+            let results = index_search(request_query.as_str());
+            data_sender.send(results).unwrap();
+            tracing::debug!("query finished");
+        }
+    });
 }
