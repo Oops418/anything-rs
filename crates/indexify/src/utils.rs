@@ -9,7 +9,8 @@ use tantivy::{
     doc,
     query::{Query, QueryParser},
     schema::{
-        IndexRecordOption, STORED, Schema, TEXT, TextFieldIndexing, TextOptions, Value,
+        Field, INDEXED, IndexRecordOption, STORED, Schema, TEXT, TextFieldIndexing, TextOptions,
+        Value,
         document::{ReferenceValue, ReferenceValueLeaf},
     },
     tokenizer::{NgramTokenizer, SimpleTokenizer, TokenStream, Tokenizer},
@@ -26,6 +27,8 @@ pub static TANTIVY_INDEX: Lazy<TantivyIndex> = Lazy::new(|| {
 
 pub struct TantivyIndex {
     schema: Schema,
+    name_field: Field,
+    path_field: Field,
     index: Index,
     index_writer: Mutex<IndexWriter>,
     index_reader: IndexReader,
@@ -36,15 +39,13 @@ impl TantivyIndex {
         debug!("building initial tantivy index...");
         let mut schema_builder = Schema::builder();
 
-        let name_options = TextOptions::default()
-            .set_indexing_options(
-                TextFieldIndexing::default()
-                    .set_tokenizer("mixed")
-                    .set_index_option(IndexRecordOption::WithFreqsAndPositions),
-            )
-            .set_stored();
-        schema_builder.add_text_field("name", name_options);
-        schema_builder.add_text_field("path", STORED);
+        let name_options = TextOptions::default().set_indexing_options(
+            TextFieldIndexing::default()
+                .set_tokenizer("mixed")
+                .set_index_option(IndexRecordOption::WithFreqsAndPositions),
+        );
+        let name_field = schema_builder.add_text_field("name", name_options);
+        let path_field = schema_builder.add_bytes_field("path", INDEXED | STORED);
         // schema_builder.add_bytes_field("if_folder", STORED);
         let schema = schema_builder.build();
 
@@ -83,6 +84,8 @@ impl TantivyIndex {
         debug!("Index writer and reader created");
         Ok(TantivyIndex {
             schema,
+            name_field,
+            path_field,
             index,
             index_writer: Mutex::new(index_writer),
             index_reader,
@@ -90,10 +93,10 @@ impl TantivyIndex {
     }
 
     pub fn add(&self, name: &str, path: &str) -> Result<(), TantivyError> {
-        let mut writer_guard = self.index_writer.lock().unwrap();
+        let writer_guard = self.index_writer.lock().unwrap();
         writer_guard.add_document(doc!(
-            self.schema.get_field("name").unwrap() => name,
-            self.schema.get_field("path").unwrap() => path,
+            self.name_field => name,
+            self.path_field => path.as_bytes(),
             // self.schema.get_field("is_folder").unwrap() => is_folder,
         ))?;
         Ok(())
@@ -103,8 +106,7 @@ impl TantivyIndex {
         debug!("Searching for {}", query);
         let mut results = vec![];
         let searcher = self.index_reader.searcher();
-        let query_parser =
-            QueryParser::for_index(&self.index, vec![self.schema.get_field("name").unwrap()]);
+        let query_parser = QueryParser::for_index(&self.index, vec![self.name_field]);
         let query = query_parser.parse_query(query)?;
 
         let top_docs: Vec<(f32, tantivy::DocAddress)> =
@@ -114,42 +116,18 @@ impl TantivyIndex {
         for (id, (_score, doc_address)) in top_docs.iter().enumerate() {
             let retrieved_doc: TantivyDocument = searcher.doc(*doc_address)?;
 
-            let name_field = self.schema.get_field("name").unwrap();
-            let path_field = self.schema.get_field("path").unwrap();
-
-            let name = retrieved_doc
-                .get_first(name_field)
-                .and_then(|field_value| {
-                    if let ReferenceValue::Leaf(ReferenceValueLeaf::Str(text)) =
-                        field_value.as_value()
-                    {
-                        Some(text)
-                    } else {
-                        None
-                    }
-                })
-                .unwrap_or_default();
-
             let path = retrieved_doc
-                .get_first(path_field)
-                .and_then(|field_value| {
-                    if let ReferenceValue::Leaf(ReferenceValueLeaf::Str(text)) =
-                        field_value.as_value()
-                    {
-                        Some(text)
-                    } else {
-                        None
-                    }
-                })
-                .unwrap_or_default();
-
-            let usage: f64 = id as f64 + 3.0;
+                .get_first(self.path_field)
+                .unwrap()
+                .as_bytes()
+                .map(|x| String::from_utf8(x.to_vec()).unwrap())
+                .unwrap();
 
             results.push(Something {
                 id,
-                name: String::from(name).into(),
-                path: String::from(path).into(),
-                usage,
+                name: "".into(),
+                path: path.into(),
+                usage: 12.0,
             });
         }
         Ok(results)

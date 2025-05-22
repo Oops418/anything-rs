@@ -14,9 +14,7 @@ use facade::component::anything_item::Something;
 pub fn index_files(path: &str) {
     let files = utils::get_files(path).unwrap();
 
-    let start = SystemTime::now();
     let mut conter: i64 = 0;
-
     debug!("begin indexing files from {}", path);
     for file in files {
         conter += 1;
@@ -32,16 +30,28 @@ pub fn index_files(path: &str) {
         }
     }
     TANTIVY_INDEX.commit().unwrap();
-    let duration = start.elapsed().unwrap();
-    tracing::debug!(
-        "indexed {} files in {} seconds",
-        conter,
-        duration.as_millis()
-    );
+    debug!("indexed {} files", conter);
 }
 
 pub fn index_search(query: &str) -> Vec<Something> {
-    TANTIVY_INDEX.search(query).unwrap()
+    TANTIVY_INDEX
+        .search(query)
+        .unwrap()
+        .into_iter()
+        .map(|mut item| {
+            let name = item
+                .path
+                .clone()
+                .to_string()
+                .rsplit(|c| c == '/')
+                .find(|part: &&str| !part.is_empty())
+                .unwrap()
+                .to_string();
+
+            item.name = name.into();
+            item
+        })
+        .collect()
 }
 
 pub fn init_index() {
@@ -49,9 +59,14 @@ pub fn init_index() {
         info!("index already initialized, skipping");
         return;
     } else {
+        let start = SystemTime::now();
         index_files("/Users/kxyang/Personal");
+        let duration = start.elapsed().unwrap();
         VAULTIFY.set("indexed", "true".to_string()).unwrap();
-        info!("index initialized successfully");
+        info!(
+            "index initialized successfully in {} seconds",
+            duration.as_secs()
+        );
     }
 }
 
@@ -67,4 +82,16 @@ pub fn init_service(request_reciver: Receiver<String>, data_sender: Sender<Vec<S
             data_sender.send(results).unwrap();
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_search() {
+        let results = index_search("Cargo");
+        println!("results: {:?}", results);
+        assert!(!results.is_empty());
+    }
 }
