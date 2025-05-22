@@ -2,6 +2,7 @@ use std::{fs, path::Path};
 
 use once_cell::sync::Lazy;
 use redb::{Database, Error, ReadTransaction, TableDefinition, WriteTransaction};
+use tracing::info;
 
 pub static VAULTIFY: Lazy<Vaultify> = Lazy::new(|| {
     let config_path: String =
@@ -33,8 +34,15 @@ pub struct Vaultify {
 impl Vaultify {
     pub fn init_vault() {
         match VAULTIFY.get("config_path") {
-            Ok(_config_path) => return,
+            Ok(_config_path) => {
+                info!("vault initialized: {}", VAULTIFY.config_path);
+                return;
+            }
             Err(_e) => {
+                info!(
+                    "vault not initialized, creating new vault in {}",
+                    VAULTIFY.config_path
+                );
                 VAULTIFY
                     .set("config_path", String::from(VAULTIFY.config_path.clone()))
                     .expect("Failed to set config_path");

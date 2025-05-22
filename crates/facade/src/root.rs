@@ -3,6 +3,7 @@ use gpui::{
 };
 use gpui_component::{Root, v_flex};
 use title_bar::FacadeTitleBar;
+use tracing::debug;
 
 use crate::title_bar;
 
@@ -14,6 +15,7 @@ pub struct FacadeRoot {
 impl FacadeRoot {
     pub fn create(view: impl Into<AnyView>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let title_bar = cx.new(|cx| FacadeTitleBar::new(window, cx));
+        debug!("facade root created");
         Self {
             title_bar,
             view: view.into(),

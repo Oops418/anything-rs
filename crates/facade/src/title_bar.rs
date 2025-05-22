@@ -7,6 +7,7 @@ use gpui_component::{
     button::{Button, ButtonVariants},
     color_picker::{ColorPickerEvent, ColorPickerState},
 };
+use tracing::debug;
 
 pub struct FacadeTitleBar {
     theme_color: Entity<ColorPickerState>,
@@ -27,6 +28,7 @@ impl FacadeTitleBar {
             },
         )];
 
+        debug!("title bar crated");
         Self {
             theme_color,
             _subscriptions,

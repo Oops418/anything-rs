@@ -15,11 +15,12 @@ use tantivy::{
     tokenizer::{NgramTokenizer, SimpleTokenizer, TokenStream, Tokenizer},
 };
 use tantivy_jieba::JiebaTokenizer;
+use tracing::{debug, error};
 use vaultify::VAULTIFY;
 use whichlang::{Lang, detect_language};
 
 pub static TANTIVY_INDEX: Lazy<TantivyIndex> = Lazy::new(|| {
-    tracing::debug!("Initializing tantivy index...");
+    debug!("initializing tantivy");
     TantivyIndex::new().unwrap()
 });
 
@@ -32,7 +33,7 @@ pub struct TantivyIndex {
 
 impl TantivyIndex {
     pub fn new() -> Result<Self, TantivyError> {
-        tracing::debug!("Building initial tantivy index...");
+        debug!("building initial tantivy index...");
         let mut schema_builder = Schema::builder();
 
         let name_options = TextOptions::default()
@@ -52,12 +53,12 @@ impl TantivyIndex {
             Ok(index) => index,
             Err(_) => {
                 if let Err(e) = fs::create_dir_all(&index_path) {
-                    tracing::error!("Failed to create directory at {}: {}", &index_path, e);
+                    error!("Failed to create directory at {}: {}", &index_path, e);
                     panic!("Failed to create directory at {}: {}", &index_path, e);
                 }
                 match Index::create_in_dir(&index_path, schema.clone()) {
                     Ok(index) => {
-                        tracing::debug!("Index created at {}", &index_path);
+                        debug!("index created at {}", &index_path);
                         index
                     }
                     Err(create_error) => {
@@ -73,14 +74,13 @@ impl TantivyIndex {
         let mixed_tokenizer = MixedTokenizer::new();
         index.tokenizers().register("mixed", mixed_tokenizer);
 
-        tracing::debug!("Creating index writer and reader...");
         let index_writer = index.writer(50_000_000)?;
         let index_reader = index
             .reader_builder()
             .reload_policy(ReloadPolicy::OnCommitWithDelay)
             .try_into()?;
 
-        tracing::debug!("Index writer and reader created...");
+        debug!("Index writer and reader created");
         Ok(TantivyIndex {
             schema,
             index,
@@ -100,20 +100,20 @@ impl TantivyIndex {
     }
 
     pub fn search(&self, query: &str) -> Result<Vec<Something>, TantivyError> {
-        tracing::debug!("Searching for {}", query);
+        debug!("Searching for {}", query);
         let mut results = vec![];
         let searcher = self.index_reader.searcher();
         let query_parser =
             QueryParser::for_index(&self.index, vec![self.schema.get_field("name").unwrap()]);
         let query = query_parser.parse_query(query)?;
 
-        let top_docs = searcher.search(&query, &TopDocs::with_limit(10))?;
-        tracing::debug!("Found {} results", top_docs.len());
+        let top_docs: Vec<(f32, tantivy::DocAddress)> =
+            searcher.search(&query, &TopDocs::with_limit(100))?;
+        debug!("Found {} results", top_docs.len());
 
         for (id, (_score, doc_address)) in top_docs.iter().enumerate() {
             let retrieved_doc: TantivyDocument = searcher.doc(*doc_address)?;
 
-            // Extract name and path from the document
             let name_field = self.schema.get_field("name").unwrap();
             let path_field = self.schema.get_field("path").unwrap();
 
@@ -143,10 +143,8 @@ impl TantivyIndex {
                 })
                 .unwrap_or_default();
 
-            // Generate random usage between 0.0 and 1.0
             let usage: f64 = id as f64 + 3.0;
 
-            // Create Something instance with unique ID based on position in results
             results.push(Something {
                 id,
                 name: String::from(name).into(),
@@ -189,8 +187,7 @@ impl Tokenizer for MixedTokenizer {
     fn token_stream<'a>(&'a mut self, text: &'a str) -> Self::TokenStream<'a> {
         match detect_language(text) {
             Lang::Cmn => {
-                tracing::debug!("Detected Chinese language");
-                tracing::debug!("Text: {}", text);
+                debug!("detected Chinese");
                 Box::new(self.jieba_tokenizer.token_stream(text))
             }
             _ => Box::new(self.default_tokenizer.token_stream(text)),
@@ -199,7 +196,7 @@ impl Tokenizer for MixedTokenizer {
 }
 
 pub fn get_files(path: &str) -> Result<WalkDirGeneric<((), ())>, jwalk::Error> {
-    tracing::debug!("Getting files from {}", path);
+    debug!("getting files from {}", path);
     let files = WalkDir::new(path).sort(false).skip_hidden(false);
     Ok(files)
 }

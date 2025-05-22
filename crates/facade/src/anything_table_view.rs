@@ -17,6 +17,8 @@ use gpui_component::{
     v_flex,
 };
 
+use serde::de;
+use tracing::debug;
 use vaultify::VAULTIFY;
 
 use crate::component::{
@@ -50,6 +52,7 @@ impl TableView {
         request_sender: Sender<String>,
         data_reciver: Receiver<Vec<Something>>,
     ) -> Self {
+        debug!("creating table view");
         let query_input = cx.new(|cx| InputState::new(window, cx).placeholder("file name..."));
 
         let delegate = AnythingTableDelegate::new();
@@ -64,18 +67,16 @@ impl TableView {
             this.update(cx, |this, cx| {
                 this.table
                     .update(cx, |table: &mut Table<AnythingTableDelegate>, _| {
-                        println!(
-                            "the first time access indexed in ui: {}",
+                        debug!(
+                            "the value of indexed accessed by ui: {}",
                             table.delegate().indexed
                         );
                         while !table.delegate().indexed {
                             table.delegate_mut().indexed =
                                 string_to_bool(VAULTIFY.get("indexed").unwrap()).unwrap();
-                            println!("indexed: {}", table.delegate().indexed);
-                            sleep(std::time::Duration::from_secs(1));
+                            debug!("indexed status: {}", table.delegate().indexed);
                         }
                     });
-                cx.notify();
             })
             .ok();
         })
@@ -104,41 +105,11 @@ impl TableView {
             self.request_sender
                 .send(text.clone())
                 .expect("Failed to send request");
-            println!("request already send: {}", text);
+            debug!("request send: {}", text);
             let new_data = self.data_reciver.recv().unwrap();
-            println!("received data: {:?}", new_data);
+            debug!("received data number: {}", new_data.len());
             table.delegate_mut().replace_anything(new_data);
         });
-        cx.notify();
-    }
-
-    fn toggle_col_order(&mut self, checked: &bool, _: &mut Window, cx: &mut Context<Self>) {
-        self.table.update(cx, |table, cx| {
-            table.delegate_mut().col_order = *checked;
-            table.refresh(cx);
-            cx.notify();
-        });
-    }
-
-    fn toggle_col_sort(&mut self, checked: &bool, _: &mut Window, cx: &mut Context<Self>) {
-        self.table.update(cx, |table, cx| {
-            table.delegate_mut().col_sort = *checked;
-            table.refresh(cx);
-            cx.notify();
-        });
-    }
-
-    fn toggle_stripe(&mut self, checked: &bool, _: &mut Window, cx: &mut Context<Self>) {
-        self.stripe = *checked;
-        let stripe = self.stripe;
-        self.table.update(cx, |table, cx| {
-            table.set_stripe(stripe, cx);
-            cx.notify();
-        });
-    }
-
-    fn toggle_refresh_data(&mut self, checked: &bool, _: &mut Window, cx: &mut Context<Self>) {
-        self.refresh_data = *checked;
         cx.notify();
     }
 
@@ -165,55 +136,18 @@ impl TableView {
 
 impl Render for TableView {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl gpui::IntoElement {
+        self.table.update(cx, |table, cx| {
+            table.set_stripe(true, cx);
+        });
         let delegate = self.table.read(cx).delegate();
         let rows_count = delegate.rows_count(cx);
-        let size = self.size;
 
         v_flex()
             .size_full()
             .text_sm()
             .gap_4()
             .child(
-                h_flex()
-                    .items_center()
-                    .gap_3()
-                    .flex_wrap()
-                    .child(
-                        Checkbox::new("col-order")
-                            .label("Column Order")
-                            .selected(delegate.col_order)
-                            .on_click(cx.listener(Self::toggle_col_order)),
-                    )
-                    .child(
-                        Checkbox::new("col-sort")
-                            .label("Column Sort")
-                            .selected(delegate.col_sort)
-                            .on_click(cx.listener(Self::toggle_col_sort)),
-                    )
-                    .child(
-                        Checkbox::new("stripe")
-                            .label("Stripe")
-                            .selected(self.stripe)
-                            .on_click(cx.listener(Self::toggle_stripe)),
-                    )
-                    .child(
-                        Checkbox::new("loading")
-                            .label("Loading")
-                            .on_click(cx.listener(|this, check: &bool, _, cx| {
-                                this.table.update(cx, |this, cx| {
-                                    cx.notify();
-                                })
-                            })),
-                    )
-                    .child(
-                        Checkbox::new("refresh-data")
-                            .label("Refresh Data")
-                            .selected(self.refresh_data)
-                            .on_click(cx.listener(Self::toggle_refresh_data)),
-                    ),
-            )
-            .child(
-                h_flex().items_center().gap_2().child(
+                h_flex().items_center().justify_center().gap_2().child(
                     h_flex()
                         .items_center()
                         .justify_between()
