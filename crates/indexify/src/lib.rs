@@ -1,11 +1,10 @@
 mod utils;
 
 use std::thread;
-use std::time::{Duration, SystemTime};
+use std::time::SystemTime;
 
 use crossbeam_channel::{Receiver, Sender};
 use tracing::{Level, debug, info, span};
-use tracing_subscriber::field::debug;
 use utils::TANTIVY_INDEX;
 use vaultify::VAULTIFY;
 
@@ -13,7 +12,6 @@ use facade::component::anything_item::Something;
 
 pub fn index_files(path: &str) {
     let files = utils::get_files(path).unwrap();
-
     let mut conter: i64 = 0;
     debug!("begin indexing files from {}", path);
     for file in files {
@@ -52,6 +50,23 @@ pub fn index_search(query: &str) -> Vec<Something> {
             item
         })
         .collect()
+}
+
+pub fn index_delete(path: &str) {
+    TANTIVY_INDEX.delete_commit(path).unwrap();
+}
+
+pub fn index_add(path: &str) {
+    TANTIVY_INDEX
+        .add(
+            path.rsplit(|c| c == '/')
+                .find(|part: &&str| !part.is_empty())
+                .unwrap(),
+            path,
+        )
+        .unwrap();
+    TANTIVY_INDEX.commit().unwrap();
+    debug!("added file to index: {}", path);
 }
 
 pub fn init_index() {
@@ -93,5 +108,10 @@ mod tests {
         let results = index_search("Cargo");
         println!("results: {:?}", results);
         assert!(!results.is_empty());
+    }
+
+    #[test]
+    fn test_index_files() {
+        index_files("/Users/kxyang/Personal/CodeSpaces/anything-rs/chinese/");
     }
 }

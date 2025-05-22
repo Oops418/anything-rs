@@ -1,0 +1,12 @@
+[package]
+name = "sentrify"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+notify = { version = "8.0.0", features = ["crossbeam-channel"] }
+crossbeam-channel = { workspace = true }
+tracing = { workspace = true }
+
+vaultify = { path = "../vaultify" }
+indexify = { path = "../indexify" }

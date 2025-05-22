@@ -1,43 +1,54 @@
-// use notify::{Config, RecommendedWatcher, RecursiveMode, Watcher};
-// use std::path::Path;
+use crossbeam_channel::unbounded;
+use indexify::{index_add, index_delete};
+use notify::{
+    Config, Error, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher, event::ModifyKind,
+};
+use std::{path::Path, thread};
+use tracing::{Level, debug, span, warn};
 
-// fn watch<P: AsRef<Path>>(path: P) -> notify::Result<()> {
-//     let (tx, rx) = std::sync::mpsc::channel();
+pub fn init_service() {
+    thread::spawn(move || {
+        let span = span!(Level::DEBUG, "sentry service thread");
+        let _enter = span.enter();
+        if let Err(e) = guard("/Users/kxyang/Personal/CodeSpaces/anything-rs/chinese") {
+            warn!("guard error: {e:?}")
+        }
+    });
+}
 
-//     // Automatically select the best implementation for your platform.
-//     // You can also access each implementation directly e.g. INotifyWatcher.
-//     let mut watcher = RecommendedWatcher::new(tx, Config::default())?;
+fn guard<P: AsRef<Path>>(path: P) -> notify::Result<()> {
+    let (event_sender, event_receiver) = unbounded::<Result<Event, Error>>();
+    let mut watcher = RecommendedWatcher::new(event_sender, Config::default())?;
+    watcher.watch(path.as_ref(), RecursiveMode::Recursive)?;
 
-//     // Add a path to be watched. All files and directories at that path and
-//     // below will be monitored for changes.
-//     watcher.watch(path.as_ref(), RecursiveMode::Recursive)?;
+    for res in event_receiver {
+        match res {
+            Ok(event) => match event.kind {
+                EventKind::Create(_) => {
+                    for path in event.paths {
+                        index_add(path.to_str().unwrap());
+                        debug!("index add: {}", path.to_str().unwrap());
+                    }
+                }
+                EventKind::Modify(kind) => {
+                    if let ModifyKind::Name(_) = kind {
+                        for path in event.paths {
+                            let path_str = path.to_str().unwrap();
+                            if Path::new(path.to_str().unwrap()).exists() {
+                                index_add(path_str);
+                                debug!("index modify: {}", path_str);
+                            } else {
+                                index_delete(path_str);
+                                debug!("index delete: {}", path_str);
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            },
+            Err(error) => warn!("watch error: {:?}", error),
+        }
+    }
 
-//     for res in rx {
-//         match res {
-//             Ok(event) => log::info!("Change: {event:?}"),
-//             Err(error) => log::error!("Error: {error:?}"),
-//         }
-//     }
-
-//     Ok(())
-// }
-
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-
-//     #[test]
-//     fn it_works() {
-//         env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
-
-//         let path = std::env::args()
-//             .nth(1)
-//             .expect("Argument 1 needs to be a path");
-
-//         log::info!("Watching {path}");
-
-//         if let Err(error) = watch(path) {
-//             log::error!("Error: {error:?}");
-//         }
-//     }
-// }
+    Ok(())
+}

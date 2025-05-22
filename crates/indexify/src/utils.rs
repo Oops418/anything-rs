@@ -4,16 +4,14 @@ use once_cell::sync::Lazy;
 use std::fs;
 use std::sync::Mutex;
 use tantivy::{
-    Document, Index, IndexReader, IndexWriter, ReloadPolicy, TantivyDocument, TantivyError,
+    Index, IndexReader, IndexWriter, ReloadPolicy, TantivyDocument, TantivyError, Term,
     collector::TopDocs,
     doc,
-    query::{Query, QueryParser},
+    query::QueryParser,
     schema::{
-        Field, INDEXED, IndexRecordOption, STORED, Schema, TEXT, TextFieldIndexing, TextOptions,
-        Value,
-        document::{ReferenceValue, ReferenceValueLeaf},
+        Field, INDEXED, IndexRecordOption, STORED, Schema, TextFieldIndexing, TextOptions, Value,
     },
-    tokenizer::{NgramTokenizer, SimpleTokenizer, TokenStream, Tokenizer},
+    tokenizer::{SimpleTokenizer, TokenStream, Tokenizer},
 };
 use tantivy_jieba::JiebaTokenizer;
 use tracing::{debug, error};
@@ -102,6 +100,14 @@ impl TantivyIndex {
         Ok(())
     }
 
+    pub fn delete_commit(&self, path: &str) -> Result<(), TantivyError> {
+        let mut writer_guard: std::sync::MutexGuard<'_, IndexWriter> =
+            self.index_writer.lock().unwrap();
+        writer_guard.delete_term(Term::from_field_bytes(self.path_field, path.as_bytes()));
+        writer_guard.commit();
+        Ok(())
+    }
+
     pub fn search(&self, query: &str) -> Result<Vec<Something>, TantivyError> {
         debug!("Searching for {}", query);
         let mut results = vec![];
@@ -182,6 +188,7 @@ pub fn get_files(path: &str) -> Result<WalkDirGeneric<((), ())>, jwalk::Error> {
 #[cfg(test)]
 mod tests {
     use jwalk::rayon::vec;
+    use tantivy::Document;
 
     use super::*;
 
