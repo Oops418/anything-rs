@@ -1,7 +1,7 @@
 use std::{fs, path::Path, vec};
 
 use anyhow::Result;
-use directories::ProjectDirs;
+use directories::{ProjectDirs, UserDirs};
 use once_cell::sync::Lazy;
 use redb::{Database, Error, TableDefinition};
 use tempfile::{NamedTempFile, tempdir};
@@ -100,11 +100,38 @@ impl Vaultify {
     }
 
     fn init_config() -> Result<()> {
+        let user_dirs =
+            UserDirs::new().ok_or_else(|| anyhow::anyhow!("Failed to get user directories"))?;
+        let home_dir = user_dirs.home_dir().to_string_lossy().to_string();
+        let music_dir = user_dirs
+            .audio_dir()
+            .ok_or_else(|| anyhow::anyhow!("Failed to get audio directory"))?
+            .to_str()
+            .expect("Failed to convert path to string with music_dir");
+        let picture_dir = user_dirs
+            .picture_dir()
+            .ok_or_else(|| anyhow::anyhow!("Failed to get picture directory"))?
+            .to_str()
+            .expect("Failed to convert path to string with picture_dir");
+        VAULTIFY.set("home_dir", home_dir)?;
         VAULTIFY.set("config_file", VAULTIFY.config_file.clone())?;
         VAULTIFY.set("tantivy_path", VAULTIFY.tantivy_path.clone())?;
         VAULTIFY.set("indexed", "false".to_string())?;
         VAULTIFY.set("default_include_path", "/".to_string())?;
-        VAULTIFY.set("default_exclude_path", serde_json::to_string(&vec![""])?)?;
+        VAULTIFY.set(
+            "default_exclude_path",
+            serde_json::to_string(&vec![
+                "/System",
+                "/bin",
+                "/dev",
+                "/sbin",
+                "/lib",
+                "/private",
+                "/.VolumeIcon.icns",
+                music_dir,
+                picture_dir,
+            ])?,
+        )?;
         Ok(())
     }
 

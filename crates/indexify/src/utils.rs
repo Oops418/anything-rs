@@ -1,3 +1,4 @@
+use anyhow::Result;
 use facade::component::anything_item::Something;
 use jwalk::{WalkDir, WalkDirGeneric};
 use once_cell::sync::Lazy;
@@ -24,7 +25,7 @@ pub static TANTIVY_INDEX: Lazy<TantivyIndex> = Lazy::new(|| {
 });
 
 pub struct TantivyIndex {
-    schema: Schema,
+    // schema: Schema,
     name_field: Field,
     path_field: Field,
     index: Index,
@@ -81,7 +82,7 @@ impl TantivyIndex {
 
         debug!("Index writer and reader created");
         Ok(TantivyIndex {
-            schema,
+            // schema,
             name_field,
             path_field,
             index,
@@ -100,11 +101,11 @@ impl TantivyIndex {
         Ok(())
     }
 
-    pub fn delete_commit(&self, path: &str) -> Result<(), TantivyError> {
+    pub fn delete_commit(&self, path: &str) -> Result<()> {
         let mut writer_guard: std::sync::MutexGuard<'_, IndexWriter> =
             self.index_writer.lock().unwrap();
         writer_guard.delete_term(Term::from_field_bytes(self.path_field, path.as_bytes()));
-        writer_guard.commit();
+        writer_guard.commit()?;
         Ok(())
     }
 
@@ -139,9 +140,9 @@ impl TantivyIndex {
         Ok(results)
     }
 
-    pub fn get_num_docs(&self) -> u64 {
-        self.index_reader.searcher().num_docs()
-    }
+    // pub fn get_num_docs(&self) -> u64 {
+    //     self.index_reader.searcher().num_docs()
+    // }
 
     pub fn commit(&self) -> Result<(), TantivyError> {
         let mut writer_guard = self.index_writer.lock().unwrap();
@@ -170,24 +171,47 @@ impl Tokenizer for MixedTokenizer {
 
     fn token_stream<'a>(&'a mut self, text: &'a str) -> Self::TokenStream<'a> {
         match detect_language(text) {
-            Lang::Cmn => {
-                debug!("detected Chinese");
-                Box::new(self.jieba_tokenizer.token_stream(text))
-            }
+            Lang::Cmn => Box::new(self.jieba_tokenizer.token_stream(text)),
             _ => Box::new(self.default_tokenizer.token_stream(text)),
         }
     }
 }
 
-pub fn get_files(path: &str) -> Result<WalkDirGeneric<((), ())>, jwalk::Error> {
+pub fn get_files(
+    path: &str,
+    remain_exclude_path: &Vec<String>,
+) -> Result<WalkDirGeneric<((), ())>> {
     debug!("getting files from {}", path);
-    let files = WalkDir::new(path).sort(false).skip_hidden(false);
+    let exclude_paths = remain_exclude_path.clone(); // Clone the vector to own it
+    let files = WalkDir::new(path).skip_hidden(false).process_read_dir(
+        move |_, _, _, dir_entry_results| {
+            dir_entry_results.iter_mut().for_each(|dir_entry_result| {
+                if let Ok(dir_entry) = dir_entry_result {
+                    let path = dir_entry.path().to_str().unwrap().to_string();
+
+                    if exclude_paths.iter().any(|x| path.starts_with(x)) {
+                        debug!("skip path {}", path);
+                        dir_entry.read_children_path = None;
+                    }
+                }
+            })
+        },
+    );
     Ok(files)
+}
+
+pub fn get_subfolders(str: &str) -> Vec<String> {
+    if let Ok(paths) = fs::read_dir(str) {
+        return paths
+            .into_iter()
+            .map(|x| x.unwrap().path().to_str().unwrap().to_string())
+            .collect();
+    }
+    vec![]
 }
 
 #[cfg(test)]
 mod tests {
-    use jwalk::rayon::vec;
     use tantivy::Document;
 
     use super::*;

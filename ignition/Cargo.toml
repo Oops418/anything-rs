@@ -4,6 +4,14 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+tantivy = { workspace = true }
+tracing = { workspace = true }
+crossbeam-channel = { workspace = true }
+directories = { workspace = true }
+anyhow = { workspace = true }
+
 indexify = { path = "../crates/indexify" }
 vaultify = { path = "../crates/vaultify" }
 logger = { path = "../crates/logger" }
+facade = { path = "../crates/facade" }
+sentrify = { path = "../crates/sentrify" }
