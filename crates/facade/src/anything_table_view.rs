@@ -18,7 +18,7 @@ use gpui_component::{
 };
 
 use serde::de;
-use tracing::debug;
+use tracing::{debug, warn};
 use vaultify::VAULTIFY;
 
 use crate::component::{
@@ -64,21 +64,31 @@ impl TableView {
             .detach();
 
         cx.spawn(async move |this, cx| {
-            this.update(cx, |this, cx| {
-                this.table
-                    .update(cx, |table: &mut Table<AnythingTableDelegate>, _| {
-                        debug!(
-                            "the value of indexed accessed by ui: {}",
-                            table.delegate().indexed
-                        );
-                        while !table.delegate().indexed {
-                            table.delegate_mut().indexed =
-                                string_to_bool(VAULTIFY.get("indexed").unwrap()).unwrap();
-                            debug!("indexed status: {}", table.delegate().indexed);
-                        }
-                    });
-            })
-            .ok();
+            loop {
+                let indexed = this
+                    .update(cx, |this, cx| {
+                        this.table
+                            .update(cx, |table: &mut Table<AnythingTableDelegate>, _| {
+                                debug!(
+                                    "the value of indexed accessed by ui: {}",
+                                    table.delegate().indexed
+                                );
+                                if !table.delegate().indexed {
+                                    table.delegate_mut().indexed =
+                                        string_to_bool(VAULTIFY.get("indexed").unwrap()).unwrap();
+                                    debug!("indexed status: {}", table.delegate().indexed);
+                                }
+                                table.delegate().indexed
+                            })
+                    })
+                    .unwrap_or(false);
+
+                if indexed {
+                    break;
+                }
+
+                Timer::after(std::time::Duration::from_secs(2)).await;
+            }
         })
         .detach();
 
@@ -106,9 +116,15 @@ impl TableView {
                 .send(text.clone())
                 .expect("Failed to send request");
             debug!("request send: {}", text);
-            let new_data = self.data_reciver.recv().unwrap();
-            debug!("received data number: {}", new_data.len());
-            table.delegate_mut().replace_anything(new_data);
+            match self.data_reciver.try_recv() {
+                Ok(data) => {
+                    debug!("received data: {:?}", data);
+                    table.delegate_mut().replace_anything(data);
+                }
+                Err(_) => {
+                    warn!("no data received");
+                }
+            }
         });
         cx.notify();
     }
