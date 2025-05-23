@@ -2,7 +2,7 @@ use core::str;
 use crossbeam_channel::{Receiver, Sender};
 use gpui::{
     App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, actions,
-    div, http_client::http::request,
+    div,
 };
 
 use crate::{anything_table_view::TableView, component::anything_item::Something};

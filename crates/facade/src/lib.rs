@@ -11,8 +11,7 @@ use gpui_component::{
     input::{Copy, Cut, Paste, Redo, Undo},
 };
 use root::FacadeRoot;
-use serde::de;
-use tracing::{Level, debug, field::debug, span};
+use tracing::{Level, debug, span};
 
 mod anything_table_view;
 mod anything_view;

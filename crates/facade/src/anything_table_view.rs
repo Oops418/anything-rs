@@ -1,14 +1,9 @@
-use std::{thread::sleep, time};
-
 use crossbeam_channel::{Receiver, Sender};
-use fake::Fake;
 use gpui::{
     App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Timer, Window,
-    http_client::http::request, prelude::FluentBuilder,
+    prelude::FluentBuilder,
 };
 use gpui_component::{
-    Selectable, Size,
-    checkbox::Checkbox,
     h_flex,
     indicator::Indicator,
     input::{InputEvent, InputState, TextInput},
@@ -17,7 +12,6 @@ use gpui_component::{
     v_flex,
 };
 
-use serde::de;
 use tracing::{debug, warn};
 use vaultify::VAULTIFY;
 
@@ -29,9 +23,9 @@ use crate::component::{
 pub struct TableView {
     table: Entity<Table<AnythingTableDelegate>>,
     query_input: Entity<InputState>,
-    stripe: bool,
-    refresh_data: bool,
-    size: Size,
+    // stripe: bool,
+    // refresh_data: bool,
+    // size: Size,
     request_sender: Sender<String>,
     data_reciver: Receiver<Vec<Something>>,
 }
@@ -95,9 +89,9 @@ impl TableView {
         Self {
             table,
             query_input,
-            stripe: false,
-            refresh_data: false,
-            size: Size::default(),
+            // stripe: false,
+            // refresh_data: false,
+            // size: Size::default(),
             request_sender,
             data_reciver,
         }

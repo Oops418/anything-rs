@@ -1,14 +1,13 @@
 use core::str;
 use gpui::{
-    AnyElement, App, Context, IntoElement, ParentElement, Pixels, SharedString, Styled, Timer,
-    Window, div, impl_internal_actions,
+    AnyElement, App, Context, IntoElement, ParentElement, Pixels, SharedString, Styled, Window,
+    div, impl_internal_actions,
 };
 use gpui_component::{
     ActiveTheme, Size, green, red,
     table::{self, ColFixed, ColSort, Table, TableDelegate},
 };
 use serde::Deserialize;
-use std::{any::Any, ops::Range, string, time::Duration};
 use vaultify::VAULTIFY;
 
 use super::anything_item::{Column, Something};
@@ -97,8 +96,10 @@ impl TableDelegate for AnythingTableDelegate {
     fn col_width(&self, col_ix: usize, _: &App) -> Pixels {
         if col_ix == 0 {
             40.0.into()
+        } else if col_ix == 1 {
+            150.0.into()
         } else {
-            200.0.into()
+            500.0.into()
         }
     }
 
@@ -114,7 +115,7 @@ impl TableDelegate for AnythingTableDelegate {
         !self.indexed
     }
 
-    fn can_load_more(&self, cx: &App) -> bool {
+    fn can_load_more(&self, _cx: &App) -> bool {
         false
     }
 
@@ -188,31 +189,6 @@ impl TableDelegate for AnythingTableDelegate {
                 _ => {}
             }
         }
-    }
-
-    fn load_more_threshold(&self) -> usize {
-        150
-    }
-
-    fn load_more(&mut self, _: &mut Window, _cx: &mut Context<Table<Self>>) {
-        self.loading = true;
-        println!("Loading more data...");
-        self.loading = false;
-
-        // cx.spawn(async move |view, cx| {
-        //     // Simulate network request, delay 1s to load data.
-        //     Timer::after(Duration::from_secs(1)).await;
-
-        //     cx.update(|cx| {
-        //         let _ = view.update(cx, |view, _| {
-        //             view.delegate_mut()
-        //                 .anything
-        //                 .extend(Something::random_something(200));
-        //             view.delegate_mut().loading = false;
-        //         });
-        //     })
-        // })
-        // .detach();
     }
 }
 
