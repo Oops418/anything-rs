@@ -101,10 +101,14 @@ impl TantivyIndex {
         Ok(())
     }
 
-    pub fn delete_commit(&self, path: &str) -> Result<()> {
-        let mut writer_guard: std::sync::MutexGuard<'_, IndexWriter> =
-            self.index_writer.lock().unwrap();
+    pub fn delete(&self, path: &str) -> Result<()> {
+        let writer_guard = self.index_writer.lock().unwrap();
         writer_guard.delete_term(Term::from_field_bytes(self.path_field, path.as_bytes()));
+        Ok(())
+    }
+
+    pub fn commit(&self) -> Result<(), TantivyError> {
+        let mut writer_guard = self.index_writer.lock().unwrap();
         writer_guard.commit()?;
         Ok(())
     }
@@ -143,12 +147,6 @@ impl TantivyIndex {
     // pub fn get_num_docs(&self) -> u64 {
     //     self.index_reader.searcher().num_docs()
     // }
-
-    pub fn commit(&self) -> Result<(), TantivyError> {
-        let mut writer_guard = self.index_writer.lock().unwrap();
-        writer_guard.commit()?;
-        Ok(())
-    }
 }
 
 #[derive(Clone)]

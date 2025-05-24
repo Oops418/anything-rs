@@ -1,6 +1,6 @@
 use anyhow::Result;
 use crossbeam_channel::unbounded;
-use indexify::{index_add, index_delete};
+use indexify::{index_add, index_commit, index_delete};
 use notify::{
     Config, Error, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher, event::ModifyKind,
 };
@@ -22,7 +22,7 @@ pub fn init_service() {
     });
 }
 
-fn guard<P: AsRef<Path>>(path: P) -> notify::Result<()> {
+fn guard<P: AsRef<Path>>(path: P) -> Result<()> {
     let (event_sender, event_receiver) = unbounded::<Result<Event, Error>>();
     let mut watcher = RecommendedWatcher::new(event_sender, Config::default())?;
     watcher.watch(path.as_ref(), RecursiveMode::Recursive)?;
@@ -41,6 +41,7 @@ fn guard<P: AsRef<Path>>(path: P) -> notify::Result<()> {
         thread::sleep(Duration::from_secs(2));
     }
 
+    let mut count = 0;
     for res in event_receiver {
         match res {
             Ok(event) => match event.kind {
@@ -55,8 +56,8 @@ fn guard<P: AsRef<Path>>(path: P) -> notify::Result<()> {
                             debug!("index skip: {}", path_str);
                             continue;
                         }
-
-                        index_add(path_str);
+                        count += 1;
+                        index_add(path_str)?;
                     }
                 }
                 EventKind::Modify(kind) => {
@@ -73,9 +74,11 @@ fn guard<P: AsRef<Path>>(path: P) -> notify::Result<()> {
                             }
 
                             if Path::new(path_str).exists() {
-                                index_add(path_str);
+                                count += 1;
+                                index_add(path_str)?;
                             } else {
-                                index_delete(path_str);
+                                count += 1;
+                                index_delete(path_str)?;
                             }
                         }
                     }
@@ -83,6 +86,11 @@ fn guard<P: AsRef<Path>>(path: P) -> notify::Result<()> {
                 _ => {}
             },
             Err(error) => warn!("watch error: {:?}", error),
+        }
+        if count == 200 {
+            index_commit()?;
+            debug!("commit index batch: {}", count);
+            count = 0;
         }
     }
 

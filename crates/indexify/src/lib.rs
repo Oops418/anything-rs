@@ -60,20 +60,24 @@ pub fn index_search(query: &str) -> Vec<Something> {
         .collect()
 }
 
-pub fn index_delete(path: &str) {
-    TANTIVY_INDEX.delete_commit(path).unwrap();
+pub fn index_delete(path: &str) -> Result<()> {
+    TANTIVY_INDEX.delete(path)?;
+    Ok(())
 }
 
-pub fn index_add(path: &str) {
-    TANTIVY_INDEX
-        .add(
-            path.rsplit(|c| c == '/')
-                .find(|part: &&str| !part.is_empty())
-                .unwrap(),
-            path,
-        )
-        .unwrap();
-    TANTIVY_INDEX.commit().unwrap();
+pub fn index_add(path: &str) -> Result<()> {
+    TANTIVY_INDEX.add(
+        path.rsplit(|c| c == '/')
+            .find(|part: &&str| !part.is_empty())
+            .unwrap(),
+        path,
+    )?;
+    Ok(())
+}
+
+pub fn index_commit() -> Result<()> {
+    TANTIVY_INDEX.commit()?;
+    Ok(())
 }
 
 pub fn init_index() -> Result<()> {
