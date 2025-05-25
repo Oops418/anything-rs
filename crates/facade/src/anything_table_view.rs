@@ -12,7 +12,7 @@ use gpui_component::{
     v_flex,
 };
 
-use tracing::{debug, warn};
+use tracing::debug;
 use vaultify::VAULTIFY;
 
 use crate::component::{
@@ -56,6 +56,29 @@ impl TableView {
             .detach();
         cx.subscribe_in(&query_input, window, Self::on_query_input_change)
             .detach();
+
+        cx.spawn(async move |this, cx| {
+            loop {
+                let result = this.update(cx, |this, cx| match this.data_reciver.try_recv() {
+                    Ok(data) => {
+                        debug!("Background task received data: {:?}", data.len());
+                        this.table.update(cx, |table, _| {
+                            table.delegate_mut().replace_anything(data);
+                        });
+                        cx.notify();
+                        true
+                    }
+                    Err(_) => false,
+                });
+
+                if result.is_err() {
+                    break;
+                }
+
+                Timer::after(std::time::Duration::from_millis(100)).await;
+            }
+        })
+        .detach();
 
         cx.spawn(async move |this, cx| {
             loop {
@@ -104,23 +127,24 @@ impl TableView {
         _: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let text = self.query_input.read(cx).value().to_string();
-        self.table.update(cx, |table, _| {
+        if let InputEvent::Change(text) = _event {
+            let text = text.to_string().trim().to_string();
+            debug!("query input changed");
+            if text.is_empty() {
+                debug!("empty query");
+                self.table
+                    .update(cx, |table: &mut Table<AnythingTableDelegate>, _| {
+                        table.delegate_mut().replace_anything(vec![]);
+                    });
+                cx.notify();
+                return;
+            }
             self.request_sender
                 .send(text.clone())
                 .expect("Failed to send request");
-            debug!("request send: {}", text);
-            match self.data_reciver.try_recv() {
-                Ok(data) => {
-                    debug!("received data: {:?}", data);
-                    table.delegate_mut().replace_anything(data);
-                }
-                Err(_) => {
-                    warn!("no data received");
-                }
-            }
-        });
-        cx.notify();
+            debug!("request sent: {}", text);
+            cx.notify();
+        }
     }
 
     fn on_table_event(
