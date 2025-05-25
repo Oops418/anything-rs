@@ -1,6 +1,6 @@
 use anyhow::Result;
 use crossbeam_channel::unbounded;
-use indexify::{index_add, index_commit, index_delete};
+use indexify::{get_num_docs, index_add, index_commit, index_delete};
 use notify::{
     Config, Error, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher, event::ModifyKind,
 };
@@ -89,6 +89,9 @@ fn guard<P: AsRef<Path>>(path: P) -> Result<()> {
         }
         if count == 200 {
             index_commit()?;
+            VAULTIFY
+                .set("indexed_files", get_num_docs().to_string())
+                .unwrap();
             debug!("commit index batch: {}", count);
             count = 0;
         }

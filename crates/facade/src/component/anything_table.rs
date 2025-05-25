@@ -97,9 +97,11 @@ impl TableDelegate for AnythingTableDelegate {
         if col_ix == 0 {
             40.0.into()
         } else if col_ix == 1 {
-            150.0.into()
+            200.0.into()
+        } else if col_ix == 2 {
+            600.0.into()
         } else {
-            500.0.into()
+            150.0.into()
         }
     }
 

@@ -113,11 +113,14 @@ impl Vaultify {
             .ok_or_else(|| anyhow::anyhow!("Failed to get picture directory"))?
             .to_str()
             .expect("Failed to convert path to string with picture_dir");
+        let (_, _, config_path) = Vaultify::get_directories().expect("Failed to get directories");
         VAULTIFY.set("home_dir", home_dir)?;
         VAULTIFY.set("config_file", VAULTIFY.config_file.clone())?;
         VAULTIFY.set("tantivy_path", VAULTIFY.tantivy_path.clone())?;
         VAULTIFY.set("indexed", "false".to_string())?;
         VAULTIFY.set("default_include_path", "/".to_string())?;
+        VAULTIFY.set("indexed_files", "0".to_string())?;
+        VAULTIFY.set("indexed_progress", "0.0".to_string())?;
         VAULTIFY.set(
             "default_exclude_path",
             serde_json::to_string(&vec![
@@ -130,6 +133,7 @@ impl Vaultify {
                 "/.VolumeIcon.icns",
                 music_dir,
                 picture_dir,
+                config_path.as_str(),
             ])?,
         )?;
         Ok(())

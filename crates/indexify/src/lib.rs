@@ -13,7 +13,11 @@ use facade::component::anything_item::Something;
 
 pub fn index_files(path: &str, remain_exclude_path: &Vec<String>) {
     let files = utils::get_files(path, remain_exclude_path).unwrap();
-    let mut conter: i64 = 0;
+    let mut conter = VAULTIFY
+        .get("indexed_files")
+        .unwrap()
+        .parse::<u64>()
+        .unwrap();
     debug!("begin indexing files from {}", path);
     for file in files {
         conter += 1;
@@ -26,6 +30,7 @@ pub fn index_files(path: &str, remain_exclude_path: &Vec<String>) {
                     )
                     .unwrap();
                 if conter % 3000 == 0 {
+                    VAULTIFY.set("indexed_files", conter.to_string()).unwrap();
                     debug!("indexed {} files", conter);
                 }
             }
@@ -36,6 +41,9 @@ pub fn index_files(path: &str, remain_exclude_path: &Vec<String>) {
         }
     }
     TANTIVY_INDEX.commit().unwrap();
+    VAULTIFY
+        .set("indexed_files", get_num_docs().to_string())
+        .unwrap();
     debug!("indexed {} files", conter);
 }
 
@@ -75,6 +83,10 @@ pub fn index_add(path: &str) -> Result<()> {
     Ok(())
 }
 
+pub fn get_num_docs() -> u64 {
+    TANTIVY_INDEX.get_num_docs()
+}
+
 pub fn index_commit() -> Result<()> {
     TANTIVY_INDEX.commit()?;
     Ok(())
@@ -92,15 +104,26 @@ pub fn init_index() -> Result<()> {
         let root_subfolder = get_subfolders("/");
         debug!("root_subfolder: {:?}", root_subfolder);
 
-        for path in root_subfolder {
-            debug!("will decide path: {}", path);
-            if default_exclude_path.iter().any(|s: &String| s == &path) {
-                debug!("skipping path: {}", path);
-                default_exclude_path.retain(|s| s != &path);
-                continue;
-            }
-            index_files(path.as_str(), &default_exclude_path);
+        let (excluded_paths, remaining_paths): (Vec<String>, Vec<String>) = root_subfolder
+            .into_iter()
+            .partition(|path| default_exclude_path.contains(path));
+
+        for path in &excluded_paths {
+            debug!("skipping path: {}", path);
         }
+
+        default_exclude_path.retain(|path| !excluded_paths.contains(path));
+
+        let mut count = 0.0;
+        let total_paths = remaining_paths.len();
+        for (index, path) in remaining_paths.into_iter().enumerate() {
+            debug!("processing path: {}", path);
+            index_files(path.as_str(), &default_exclude_path);
+            count = ((index + 1) as f64 / total_paths as f64) * 100.0;
+            VAULTIFY.set("indexed_progress", count.to_string())?;
+        }
+        debug!("completed processing all paths: {:.1}%", count);
+
         let duration = start.elapsed().unwrap();
         VAULTIFY.set("indexed", "true".to_string()).unwrap();
         info!(

@@ -144,9 +144,9 @@ impl TantivyIndex {
         Ok(results)
     }
 
-    // pub fn get_num_docs(&self) -> u64 {
-    //     self.index_reader.searcher().num_docs()
-    // }
+    pub fn get_num_docs(&self) -> u64 {
+        self.index_reader.searcher().num_docs()
+    }
 }
 
 #[derive(Clone)]

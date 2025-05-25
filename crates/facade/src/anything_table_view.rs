@@ -1,14 +1,11 @@
 use crossbeam_channel::{Receiver, Sender};
 use gpui::{
     App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Timer, Window,
-    prelude::FluentBuilder,
 };
 use gpui_component::{
     h_flex,
-    indicator::Indicator,
     input::{InputEvent, InputState, TextInput},
-    label::Label,
-    table::{Table, TableDelegate, TableEvent},
+    table::{Table, TableEvent},
     v_flex,
 };
 
@@ -173,8 +170,6 @@ impl Render for TableView {
         self.table.update(cx, |table, cx| {
             table.set_stripe(true, cx);
         });
-        let delegate = self.table.read(cx).delegate();
-        let rows_count = delegate.rows_count(cx);
 
         v_flex()
             .size_full()
@@ -182,21 +177,12 @@ impl Render for TableView {
             .gap_4()
             .child(
                 h_flex().items_center().justify_center().gap_2().child(
-                    h_flex()
-                        .items_center()
-                        .justify_between()
-                        .gap_1()
-                        .child(Label::new("search file:"))
-                        .child(
-                            h_flex()
-                                .min_w_32()
-                                .child(TextInput::new(&self.query_input))
-                                .into_any_element(),
-                        )
-                        .when(delegate.loading, |this| {
-                            this.child(h_flex().gap_1().child(Indicator::new()).child("Loading..."))
-                        })
-                        .child(format!("Total Rows: {}", rows_count)),
+                    h_flex().items_center().justify_between().gap_1().child(
+                        h_flex()
+                            .min_w_64()
+                            .child(TextInput::new(&self.query_input))
+                            .into_any_element(),
+                    ),
                 ),
             )
             .child(self.table.clone())
