@@ -1,10 +1,12 @@
 use core::str;
 use gpui::{
-    AnyElement, App, Context, IntoElement, ParentElement, Pixels, SharedString, Styled, Window,
-    div, impl_internal_actions,
+    AnyElement, App, Context, InteractiveElement, IntoElement, ParentElement, Pixels, SharedString,
+    Styled, Window, div, impl_internal_actions,
 };
 use gpui_component::{
-    ActiveTheme, Size, green, red,
+    ActiveTheme, Size, green,
+    popup_menu::PopupMenu,
+    red,
     table::{self, ColFixed, ColSort, Table, TableDelegate},
 };
 use serde::Deserialize;
@@ -119,6 +121,31 @@ impl TableDelegate for AnythingTableDelegate {
 
     fn can_load_more(&self, _cx: &App) -> bool {
         false
+    }
+
+    fn context_menu(
+        &self,
+        row_ix: usize,
+        menu: PopupMenu,
+        _window: &Window,
+        _cx: &App,
+    ) -> PopupMenu {
+        menu.menu(
+            format!("{}", self.anything.get(row_ix).unwrap().name),
+            Box::new(OpenDetail(row_ix)),
+        )
+        .separator()
+        // .menu("Open", Box::new())
+        // .menu("Open Folder", Box::new())
+    }
+
+    fn render_tr(
+        &self,
+        row_ix: usize,
+        _: &mut Window,
+        _cx: &mut Context<Table<Self>>,
+    ) -> gpui::Stateful<gpui::Div> {
+        div().id(row_ix)
     }
 
     fn render_td(

@@ -1,11 +1,14 @@
+use std::process::Command;
+
 use crossbeam_channel::{Receiver, Sender};
 use gpui::{
-    App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Timer, Window,
+    App, AppContext, Context, Entity, Focusable, InteractiveElement, IntoElement, KeyDownEvent,
+    ParentElement, Render, Styled, Timer, Window,
 };
 use gpui_component::{
     h_flex,
     input::{InputEvent, InputState, TextInput},
-    table::{Table, TableEvent},
+    table::Table,
     v_flex,
 };
 
@@ -49,8 +52,6 @@ impl TableView {
         let delegate = AnythingTableDelegate::new();
         let table = cx.new(|cx| Table::new(delegate, window, cx));
 
-        cx.subscribe_in(&table, window, Self::on_table_event)
-            .detach();
         cx.subscribe_in(&query_input, window, Self::on_query_input_change)
             .detach();
 
@@ -144,22 +145,27 @@ impl TableView {
         }
     }
 
-    fn on_table_event(
-        &mut self,
-        _: &Entity<Table<AnythingTableDelegate>>,
-        event: &TableEvent,
-        _window: &mut Window,
-        _cx: &mut Context<Self>,
-    ) {
-        match event {
-            TableEvent::ColWidthsChanged(col_widths) => {
-                println!("Col widths changed: {:?}", col_widths)
-            }
-            TableEvent::SelectCol(ix) => println!("Select col: {}", ix),
-            TableEvent::DoubleClickedRow(ix) => println!("Double clicked row: {}", ix),
-            TableEvent::SelectRow(ix) => println!("Select row: {}", ix),
-            TableEvent::MoveCol(origin_idx, target_idx) => {
-                println!("Move col index: {} -> {}", origin_idx, target_idx);
+    fn on_key_down(&mut self, event: &KeyDownEvent, _window: &mut Window, cx: &mut Context<Self>) {
+        if event.keystroke.key == "space" {
+            if let Some(selected_row_ix) = self.table.read(cx).selected_row() {
+                let path = self
+                    .table
+                    .read(cx)
+                    .delegate()
+                    .anything
+                    .get(selected_row_ix)
+                    .unwrap()
+                    .path
+                    .to_string();
+
+                debug!("Previewing file at path: {}", path);
+                let status = Command::new("qlmanage").arg("-p").arg(&path).spawn().ok();
+
+                if status.is_none() {
+                    debug!("Failed to open file with Quick Look: {}", path);
+                } else {
+                    debug!("File opened successfully: {}", path);
+                }
             }
         }
     }
@@ -175,6 +181,8 @@ impl Render for TableView {
             .size_full()
             .text_sm()
             .gap_4()
+            .track_focus(&self.table.focus_handle(cx))
+            .on_key_down(cx.listener(Self::on_key_down)) // Add keyboard handler
             .child(
                 h_flex().items_center().justify_center().gap_2().child(
                     h_flex().items_center().justify_between().gap_1().child(
