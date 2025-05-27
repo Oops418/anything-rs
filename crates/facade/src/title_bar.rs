@@ -35,28 +35,28 @@ impl FacadeTitleBar {
             },
         )];
 
-        cx.spawn(async move |this, cx| {
-            loop {
-                this.update(cx, |this, cx| {
-                    debug!(
-                        "the value of indexed files accessed by ui: {}",
-                        this.index_files_count
-                    );
-                    this.index_files_count = VAULTIFY.get("indexed_files").unwrap().into();
-                    this.progress_value = VAULTIFY
-                        .get("indexed_progress")
-                        .unwrap()
-                        .parse::<f32>()
-                        .unwrap();
-                    debug!("indexed files: {}", this.index_files_count);
-                    cx.notify();
-                })
-                .unwrap();
+        // cx.spawn(async move |this, cx| {
+        //     loop {
+        //         this.update(cx, |this, cx| {
+        //             debug!(
+        //                 "the value of indexed files accessed by ui: {}",
+        //                 this.index_files_count
+        //             );
+        //             this.index_files_count = VAULTIFY.get("indexed_files").unwrap().into();
+        //             this.progress_value = VAULTIFY
+        //                 .get("indexed_progress")
+        //                 .unwrap()
+        //                 .parse::<f32>()
+        //                 .unwrap();
+        //             debug!("indexed files: {}", this.index_files_count);
+        //             cx.notify();
+        //         })
+        //         .unwrap();
 
-                Timer::after(std::time::Duration::from_secs(2)).await;
-            }
-        })
-        .detach();
+        //         Timer::after(std::time::Duration::from_secs(2)).await;
+        //     }
+        // })
+        // .detach();
 
         debug!("title bar crated");
         Self {

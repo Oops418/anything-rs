@@ -1949,11 +1949,11 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "cc",
- "crossbeam-channel",
  "gpui",
  "gpui-component",
  "rust-embed",
  "serde",
+ "smol 2.0.2",
  "tracing",
  "vaultify",
 ]
@@ -2929,6 +2929,7 @@ dependencies = [
  "indexify",
  "logger",
  "sentrify",
+ "smol 2.0.2",
  "tantivy",
  "tracing",
  "vaultify",
@@ -3023,11 +3024,11 @@ name = "indexify"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "crossbeam-channel",
  "facade",
  "jwalk",
  "once_cell",
  "serde_json",
+ "smol 2.0.2",
  "tantivy",
  "tantivy-jieba",
  "tempfile",

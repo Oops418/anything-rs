@@ -1,7 +1,6 @@
 use anything_view::AnythingView;
 use asset::Assets;
 use component::anything_item::Something;
-use crossbeam_channel::{Receiver, Sender};
 use gpui::{
     App, AppContext, Application, Bounds, KeyBinding, Menu, MenuItem, Window, WindowBounds,
     WindowKind, WindowOptions, actions, px, size,
@@ -11,6 +10,7 @@ use gpui_component::{
     input::{Copy, Cut, Paste, Redo, Undo},
 };
 use root::FacadeRoot;
+use smol::channel::{Receiver, Sender};
 use tracing::{Level, debug, span};
 
 mod anything_table_view;

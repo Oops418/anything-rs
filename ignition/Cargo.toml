@@ -9,6 +9,7 @@ tracing = { workspace = true }
 crossbeam-channel = { workspace = true }
 directories = { workspace = true }
 anyhow = { workspace = true }
+smol = { workspace = true }
 
 indexify = { path = "../crates/indexify" }
 vaultify = { path = "../crates/vaultify" }
