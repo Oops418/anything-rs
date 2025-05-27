@@ -4,7 +4,6 @@ use anyhow::Result;
 use directories::{ProjectDirs, UserDirs};
 use once_cell::sync::Lazy;
 use redb::{Database, Error, TableDefinition};
-use tempfile::{NamedTempFile, tempdir};
 use tracing::{debug, info};
 
 const APP_NAME: &str = "Anything";
@@ -12,16 +11,8 @@ const DB_FILE_NAME: &str = "anything.redb";
 const TANTIVY_DIR_NAME: &str = "tantivy";
 const TABLE_NAME: &str = "anything";
 
-pub static VAULTIFY: Lazy<Vaultify> = Lazy::new(|| {
-    #[cfg(feature = "mock")]
-    {
-        Vaultify::new_mock().expect("Failed to initialize mock Vaultify")
-    }
-    #[cfg(not(feature = "mock"))]
-    {
-        Vaultify::new().expect("Failed to initialize Vaultify")
-    }
-});
+pub static VAULTIFY: Lazy<Vaultify> =
+    Lazy::new(|| Vaultify::new().expect("Failed to initialize Vaultify"));
 
 pub struct Vaultify {
     config_file: String,
@@ -33,18 +24,6 @@ pub struct Vaultify {
 impl Vaultify {
     fn new() -> Result<Self> {
         let (config_file, tantivy_path, _) = Self::get_directories()?;
-        Self::setup(config_file, tantivy_path)
-    }
-
-    #[allow(dead_code)]
-    fn new_mock() -> Result<Vaultify, anyhow::Error> {
-        let config_file = NamedTempFile::new()
-            .unwrap()
-            .path()
-            .to_str()
-            .unwrap()
-            .to_string();
-        let tantivy_path = tempdir()?.path().to_str().unwrap().to_string();
         Self::setup(config_file, tantivy_path)
     }
 
@@ -172,18 +151,11 @@ impl Vaultify {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[test]
-    #[cfg(not(feature = "mock"))]
 
+    #[test]
     fn test_vaultify() {
         Vaultify::init_vault();
         let (_, _, config_path) = Vaultify::get_directories().expect("Failed to get directories");
         Vaultify::cleanup(config_path);
-    }
-
-    #[test]
-    #[cfg(feature = "mock")]
-    fn test_vaultify_mock() {
-        Vaultify::init_vault();
     }
 }

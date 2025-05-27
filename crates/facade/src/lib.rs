@@ -17,6 +17,7 @@ mod anything_table_view;
 mod anything_view;
 mod asset;
 pub mod component;
+mod quicklook;
 mod root;
 mod title_bar;
 

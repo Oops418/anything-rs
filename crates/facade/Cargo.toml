@@ -14,3 +14,6 @@ tracing = { workspace = true }
 vaultify = { path = "../vaultify" }
 gpui = { git = "https://github.com/huacnlee/zed.git", branch = "webview" }
 gpui-component = { git = "https://github.com/longbridge/gpui-component.git" }
+
+[build-dependencies]
+cc = "1.2.24"

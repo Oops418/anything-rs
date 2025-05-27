@@ -15,9 +15,12 @@ use gpui_component::{
 use tracing::debug;
 use vaultify::VAULTIFY;
 
-use crate::component::{
-    anything_item::Something,
-    anything_table::{AnythingTableDelegate, string_to_bool},
+use crate::{
+    component::{
+        anything_item::Something,
+        anything_table::{AnythingTableDelegate, string_to_bool},
+    },
+    quicklook::preview,
 };
 
 pub struct TableView {
@@ -158,14 +161,15 @@ impl TableView {
                     .path
                     .to_string();
 
-                debug!("Previewing file at path: {}", path);
-                let status = Command::new("qlmanage").arg("-p").arg(&path).spawn().ok();
+                // debug!("Previewing file at path: {}", path);
+                // let status = Command::new("qlmanage").arg("-p").arg(&path).spawn().ok();
 
-                if status.is_none() {
-                    debug!("Failed to open file with Quick Look: {}", path);
-                } else {
-                    debug!("File opened successfully: {}", path);
-                }
+                // if status.is_none() {
+                //     debug!("Failed to open file with Quick Look: {}", path);
+                // } else {
+                //     debug!("File opened successfully: {}", path);
+                // }
+                preview(path);
             }
         }
     }
