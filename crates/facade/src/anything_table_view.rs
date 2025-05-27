@@ -1,6 +1,5 @@
 use std::process::Command;
 
-use crossbeam_channel::{Receiver, Sender};
 use gpui::{
     App, AppContext, Context, Entity, Focusable, InteractiveElement, IntoElement, KeyDownEvent,
     ParentElement, Render, Styled, Timer, Window,
@@ -11,6 +10,7 @@ use gpui_component::{
     table::Table,
     v_flex,
 };
+use smol::channel::{Receiver, Sender};
 
 use tracing::debug;
 use vaultify::VAULTIFY;
@@ -27,7 +27,6 @@ pub struct TableView {
     // refresh_data: bool,
     // size: Size,
     request_sender: Sender<String>,
-    data_reciver: Receiver<Vec<Something>>,
 }
 
 impl TableView {
@@ -56,24 +55,16 @@ impl TableView {
             .detach();
 
         cx.spawn(async move |this, cx| {
-            loop {
-                let result = this.update(cx, |this, cx| match this.data_reciver.try_recv() {
-                    Ok(data) => {
-                        debug!("Background task received data: {:?}", data.len());
-                        this.table.update(cx, |table, _| {
+            while let Ok(data) = data_reciver.recv().await {
+                debug!("Background task received data: {:?}", data.len());
+                this.update(cx, |this, cx| {
+                    this.table
+                        .update(cx, |table: &mut Table<AnythingTableDelegate>, _| {
                             table.delegate_mut().replace_anything(data);
                         });
-                        cx.notify();
-                        true
-                    }
-                    Err(_) => false,
-                });
-
-                if result.is_err() {
-                    break;
-                }
-
-                Timer::after(std::time::Duration::from_millis(100)).await;
+                    cx.notify();
+                })
+                .ok();
             }
         })
         .detach();
@@ -104,6 +95,7 @@ impl TableView {
 
                 Timer::after(std::time::Duration::from_secs(2)).await;
             }
+            debug!("indexed status is finished, show normal table view");
         })
         .detach();
 
@@ -114,7 +106,6 @@ impl TableView {
             // refresh_data: false,
             // size: Size::default(),
             request_sender,
-            data_reciver,
         }
     }
 
@@ -137,9 +128,7 @@ impl TableView {
                 cx.notify();
                 return;
             }
-            self.request_sender
-                .send(text.clone())
-                .expect("Failed to send request");
+            self.request_sender.try_send(text.clone()).ok();
             debug!("request sent: {}", text);
             cx.notify();
         }

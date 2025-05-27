@@ -8,8 +8,8 @@ rust-embed = "8.7.2"
 serde = "1.0.203"
 
 anyhow = { workspace = true }
-crossbeam-channel = { workspace = true }
 tracing = { workspace = true }
+smol = { workspace = true }
 
 vaultify = { path = "../vaultify" }
 gpui = { git = "https://github.com/huacnlee/zed.git", branch = "webview" }

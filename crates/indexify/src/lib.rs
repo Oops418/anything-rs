@@ -4,8 +4,8 @@ use std::thread;
 use std::time::SystemTime;
 
 use anyhow::Result;
-use crossbeam_channel::{Receiver, Sender};
-use tracing::{Level, debug, info, span, warn};
+use smol::channel::{Receiver, Sender};
+use tracing::{Level, debug, error, info, span, warn};
 use utils::{TANTIVY_INDEX, get_subfolders};
 use vaultify::VAULTIFY;
 
@@ -134,18 +134,27 @@ pub fn init_index() -> Result<()> {
     Ok(())
 }
 
-pub fn init_service(request_reciver: Receiver<String>, data_sender: Sender<Vec<Something>>) {
-    thread::spawn(move || {
-        let span = span!(Level::DEBUG, "index service thread");
-        let _enter = span.enter();
-        init_index().expect("Failed to initialize index");
-        loop {
-            let request_query = request_reciver.recv().unwrap();
-            debug!("received request: {}", request_query);
-            let results = index_search(request_query.as_str());
-            data_sender.send(results).unwrap();
-        }
+pub fn init_service(
+    request_reciver: Receiver<String>,
+    data_sender: Sender<Vec<Something>>,
+) -> Result<()> {
+    info!("Initializing index service...");
+    thread::spawn(move || -> Result<()> {
+        smol::block_on(async move {
+            let span = span!(Level::DEBUG, "index service thread");
+            let _enter = span.enter();
+            init_index().expect("Failed to initialize index");
+            while let Ok(data) = request_reciver.recv().await {
+                let results = index_search(data.as_str());
+                debug!("Search results: {:?}", results.len());
+                if let Err(e) = data_sender.try_send(results) {
+                    error!("Failed to send results: {}", e);
+                }
+            }
+        });
+        Ok(())
     });
+    Ok(())
 }
 
 #[cfg(test)]
