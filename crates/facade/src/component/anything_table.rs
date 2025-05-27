@@ -1,26 +1,18 @@
-use core::str;
 use gpui::{
     AnyElement, App, Context, InteractiveElement, IntoElement, ParentElement, Pixels, SharedString,
-    Styled, Window, div, impl_internal_actions,
+    Styled, Window, actions, div,
 };
 use gpui_component::{
-    ActiveTheme, Size, green,
+    ActiveTheme, green,
     popup_menu::PopupMenu,
     red,
     table::{self, ColFixed, ColSort, Table, TableDelegate},
 };
-use serde::Deserialize;
 use vaultify::VAULTIFY;
 
 use super::anything_item::{Column, Something};
 
-impl_internal_actions!(table_story, [OpenDetail, ChangeSize]);
-
-#[derive(Clone, PartialEq, Eq, Deserialize)]
-struct OpenDetail(usize);
-
-#[derive(Clone, PartialEq, Eq, Deserialize)]
-pub struct ChangeSize(pub Size);
+actions!(anything_table_action, [OpenSystemFolder, OpenSystemFile]);
 
 pub struct AnythingTableDelegate {
     pub anything: Vec<Something>,
@@ -132,11 +124,11 @@ impl TableDelegate for AnythingTableDelegate {
     ) -> PopupMenu {
         menu.menu(
             format!("{}", self.anything.get(row_ix).unwrap().name),
-            Box::new(OpenDetail(row_ix)),
+            Box::new(OpenSystemFile),
         )
         .separator()
-        // .menu("Open", Box::new())
-        // .menu("Open Folder", Box::new())
+        .menu("Open", Box::new(OpenSystemFile))
+        .menu("Open Folder", Box::new(OpenSystemFolder))
     }
 
     fn render_tr(

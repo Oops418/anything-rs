@@ -1,4 +1,4 @@
-use std::process::Command;
+use std::{path::PathBuf, process::Command};
 
 use gpui::{
     App, AppContext, Context, Entity, Focusable, InteractiveElement, IntoElement, KeyDownEvent,
@@ -7,7 +7,7 @@ use gpui::{
 use gpui_component::{
     h_flex,
     input::{InputEvent, InputState, TextInput},
-    table::Table,
+    table::{Table, TableEvent},
     v_flex,
 };
 use smol::channel::{Receiver, Sender};
@@ -17,7 +17,7 @@ use vaultify::VAULTIFY;
 
 use crate::component::{
     anything_item::Something,
-    anything_table::{AnythingTableDelegate, string_to_bool},
+    anything_table::{AnythingTableDelegate, OpenSystemFile, OpenSystemFolder, string_to_bool},
 };
 
 pub struct TableView {
@@ -51,6 +51,8 @@ impl TableView {
         let delegate = AnythingTableDelegate::new();
         let table = cx.new(|cx| Table::new(delegate, window, cx));
 
+        cx.subscribe_in(&table, window, Self::on_table_event)
+            .detach();
         cx.subscribe_in(&query_input, window, Self::on_query_input_change)
             .detach();
 
@@ -109,6 +111,31 @@ impl TableView {
         }
     }
 
+    fn on_table_event(
+        &mut self,
+        _: &Entity<Table<AnythingTableDelegate>>,
+        event: &TableEvent,
+        _window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        match event {
+            TableEvent::DoubleClickedRow(_) => {
+                let selected_row_ix = self.table.read(cx).selected_row().unwrap();
+                let path = self
+                    .table
+                    .read(cx)
+                    .delegate()
+                    .anything
+                    .get(selected_row_ix)
+                    .unwrap()
+                    .path
+                    .clone();
+                cx.open_with_system(&PathBuf::from(path.to_string()));
+            }
+            _ => {}
+        }
+    }
+
     fn on_query_input_change(
         &mut self,
         _: &Entity<InputState>,
@@ -134,7 +161,7 @@ impl TableView {
         }
     }
 
-    fn on_key_down(&mut self, event: &KeyDownEvent, _window: &mut Window, cx: &mut Context<Self>) {
+    fn on_key_space(&mut self, event: &KeyDownEvent, _window: &mut Window, cx: &mut Context<Self>) {
         if event.keystroke.key == "space" {
             if let Some(selected_row_ix) = self.table.read(cx).selected_row() {
                 let path = self
@@ -158,6 +185,40 @@ impl TableView {
             }
         }
     }
+
+    fn on_open_system_folder(
+        &mut self,
+        _: &OpenSystemFolder,
+        _: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let selected_row_ix = self.table.read(cx).selected_row().unwrap();
+        let path = self
+            .table
+            .read(cx)
+            .delegate()
+            .anything
+            .get(selected_row_ix)
+            .unwrap()
+            .path
+            .clone();
+        cx.reveal_path(&PathBuf::from(path.to_string()));
+        println!("Open System Folder action triggered");
+    }
+
+    fn on_open_system_file(&mut self, _: &OpenSystemFile, _: &mut Window, cx: &mut Context<Self>) {
+        let selected_row_ix = self.table.read(cx).selected_row().unwrap();
+        let path = self
+            .table
+            .read(cx)
+            .delegate()
+            .anything
+            .get(selected_row_ix)
+            .unwrap()
+            .path
+            .clone();
+        cx.open_with_system(&PathBuf::from(path.to_string()));
+    }
 }
 
 impl Render for TableView {
@@ -167,11 +228,13 @@ impl Render for TableView {
         });
 
         v_flex()
+            .on_action(cx.listener(Self::on_open_system_folder))
+            .on_action(cx.listener(Self::on_open_system_file))
             .size_full()
             .text_sm()
             .gap_4()
             .track_focus(&self.table.focus_handle(cx))
-            .on_key_down(cx.listener(Self::on_key_down)) // Add keyboard handler
+            .on_key_down(cx.listener(Self::on_key_space)) // Add keyboard handler
             .child(
                 h_flex().items_center().justify_center().gap_2().child(
                     h_flex().items_center().justify_between().gap_1().child(

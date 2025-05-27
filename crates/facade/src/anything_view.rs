@@ -1,13 +1,9 @@
-use core::str;
 use gpui::{
-    App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, actions,
-    div,
+    App, AppContext, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div,
 };
 use smol::channel::{Receiver, Sender};
 
 use crate::{anything_table_view::TableView, component::anything_item::Something};
-
-actions!(anything_list, [SelectedItem]);
 
 pub struct AnythingView {
     root: Entity<TableView>,

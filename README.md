@@ -10,7 +10,6 @@ This project is currently under active development in early development stage.
 
 The following items are currently on our development roadmap:
 
-- [ ] Implement QuickLook at the facade
 - [ ] Fix menu name error
 - [ ] Fix cols_count
 - [ ] Improve UI styling
@@ -24,3 +23,4 @@ The following items are currently on our development roadmap:
 - [ ] Add comprehensive tests
 - [ ] Improve performance
 - [ ] Fix tantivy-jieba integration issues
+- [ ] Seems like it can not delete files in the index properly
