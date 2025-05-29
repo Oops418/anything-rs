@@ -4,18 +4,17 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-whichlang = "0.1.1"
-jwalk = "0.8.1"
-
-once_cell = { workspace = true }
-tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
-serde_json = { workspace = true }
-tantivy = { workspace = true }
-smol = { workspace = true }
-tempfile = { workspace = true }
-anyhow = { workspace = true }
-
-vaultify = { path = "../vaultify" }
-facade = { path = "../facade" }
-tantivy-jieba = { path = "../dependencies/tantivy-jieba" }
+whichlang.workspace = true
+jwalk.workspace = true
+once_cell.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+serde_json.workspace = true
+tantivy.workspace = true
+smol.workspace = true
+tempfile.workspace = true
+anyhow.workspace = true
+time.workspace = true
+vaultify.workspace = true
+facade.workspace = true
+tantivy-jieba.workspace = true

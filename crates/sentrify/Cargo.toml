@@ -4,12 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-notify = { version = "8.0.0", features = ["crossbeam-channel"] }
-
-crossbeam-channel = { workspace = true }
-tracing = { workspace = true }
-anyhow = { workspace = true }
-serde_json = { workspace = true }
-
-vaultify = { path = "../vaultify" }
-indexify = { path = "../indexify" }
+notify.workspace = true
+crossbeam-channel.workspace = true
+tracing.workspace = true
+anyhow.workspace = true
+serde_json.workspace = true
+vaultify.workspace = true
+indexify.workspace = true

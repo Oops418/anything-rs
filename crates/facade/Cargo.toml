@@ -4,13 +4,13 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-rust-embed = "8.7.2"
-serde = "1.0.203"
-
-anyhow = { workspace = true }
-tracing = { workspace = true }
-smol = { workspace = true }
-
-vaultify = { path = "../vaultify" }
-gpui = { git = "https://github.com/huacnlee/zed.git", branch = "webview" }
-gpui-component = { git = "https://github.com/longbridge/gpui-component.git" }
+rust-embed.workspace = true
+serde.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+smol.workspace = true
+time.workspace = true
+vaultify.workspace = true
+gpui.workspace = true
+gpui-component.workspace = true
+material-icon-embed-rs.workspace = true
