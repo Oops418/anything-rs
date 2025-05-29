@@ -2,12 +2,12 @@ use gpui::SharedString;
 
 use gpui_component::table::ColSort;
 
-#[derive(Clone, Default, Debug)]
 pub struct Something {
-    pub id: usize,
+    pub class: SharedString,
     pub path: SharedString,
+    pub last_modified_date: time::Date,
     pub name: SharedString,
-    pub usage: f64,
+    pub size: f64,
 }
 
 pub struct Column {

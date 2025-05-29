@@ -1,7 +1,7 @@
 mod utils;
 
-use std::thread;
 use std::time::SystemTime;
+use std::{fs, thread};
 
 use anyhow::Result;
 use smol::channel::{Receiver, Sender};
@@ -53,14 +53,50 @@ pub fn index_search(query: &str) -> Vec<Something> {
         .unwrap()
         .into_iter()
         .map(|mut item| {
-            let name = item
-                .path
-                .clone()
-                .to_string()
-                .rsplit(|c| c == '/')
-                .find(|part: &&str| !part.is_empty())
-                .unwrap()
+            let path_str = item.path.clone().to_string();
+
+            let name = path_str
+                .rsplit('/')
+                .find(|part| !part.is_empty())
+                .unwrap_or("")
                 .to_string();
+
+            if let Ok(metadata) = fs::metadata(&path_str) {
+                let class = name
+                    .rsplit('.')
+                    .next()
+                    .filter(|ext| !ext.is_empty() && ext != &name)
+                    .unwrap_or_else(|| if metadata.is_dir() { "folder" } else { "file" })
+                    .to_string();
+
+                let size = metadata.len() as f64 / (1024.0 * 1024.0);
+
+                let last_modified_date = metadata
+                    .modified()
+                    .ok()
+                    .and_then(|time| {
+                        use time::OffsetDateTime;
+                        let duration = time.duration_since(std::time::UNIX_EPOCH).ok()?;
+                        OffsetDateTime::from_unix_timestamp(duration.as_secs() as i64).ok()
+                    })
+                    .unwrap_or_else(|| time::OffsetDateTime::now_utc())
+                    .date();
+
+                item.size = size;
+                item.last_modified_date = last_modified_date;
+                item.class = class.into();
+            } else {
+                let class = name
+                    .rsplit('.')
+                    .next()
+                    .filter(|ext| !ext.is_empty() && ext != &name)
+                    .unwrap_or("unknown")
+                    .to_string();
+
+                item.size = 0.0;
+                item.last_modified_date = time::OffsetDateTime::now_utc().date();
+                item.class = class.into();
+            }
 
             item.name = name.into();
             item

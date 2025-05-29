@@ -1,5 +1,5 @@
 use anything_view::AnythingView;
-use asset::Assets;
+use asset::VanillaAsset;
 use component::anything_item::Something;
 use gpui::{
     App, AppContext, Application, Bounds, KeyBinding, Menu, MenuItem, Window, WindowBounds,
@@ -25,7 +25,7 @@ actions!(facade, [Quit, Hide]);
 pub fn setup(request_sender: Sender<String>, data_reciver: Receiver<Vec<Something>>) {
     let span = span!(Level::DEBUG, "ui service thread");
     let _enter: span::Entered<'_> = span.enter();
-    let app = Application::new().with_assets(Assets);
+    let app = Application::new().with_assets(VanillaAsset);
     app.run(|cx: &mut App| {
         gpui_component::init(cx);
         Facade::shortcut_binding_init(cx);

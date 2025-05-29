@@ -15,6 +15,7 @@ use tantivy::{
     tokenizer::{SimpleTokenizer, TokenStream, Tokenizer},
 };
 use tantivy_jieba::JiebaTokenizer;
+use time::OffsetDateTime;
 use tracing::{debug, error};
 use vaultify::VAULTIFY;
 use whichlang::{Lang, detect_language};
@@ -124,10 +125,10 @@ impl TantivyIndex {
             searcher.search(&query, &TopDocs::with_limit(100))?;
         debug!("Found {} results", top_docs.len());
 
-        for (id, (_score, doc_address)) in top_docs.iter().enumerate() {
+        for (_id, (_score, doc_address)) in top_docs.iter().enumerate() {
             let retrieved_doc: TantivyDocument = searcher.doc(*doc_address)?;
 
-            let path = retrieved_doc
+            let path: String = retrieved_doc
                 .get_first(self.path_field)
                 .unwrap()
                 .as_bytes()
@@ -135,10 +136,11 @@ impl TantivyIndex {
                 .unwrap();
 
             results.push(Something {
-                id,
                 name: "".into(),
                 path: path.into(),
-                usage: 12.0,
+                size: 0.0,
+                last_modified_date: OffsetDateTime::now_utc().date(),
+                class: "".into(),
             });
         }
         Ok(results)

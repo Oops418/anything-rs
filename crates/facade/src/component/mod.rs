@@ -1,2 +1,3 @@
 pub mod anything_item;
-pub(crate) mod anything_table;
+pub mod anything_table;
+pub mod custom_icon;

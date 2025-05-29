@@ -3,14 +3,18 @@ use gpui::{
     Styled, Window, actions, div,
 };
 use gpui_component::{
-    ActiveTheme, green,
+    Icon,
     popup_menu::PopupMenu,
-    red,
     table::{self, ColFixed, ColSort, Table, TableDelegate},
 };
+use material_icon_embed_rs::material_icon_file::MaterialIconFile;
+use material_icon_embed_rs::material_icon_folder::MaterialIconFolder;
 use vaultify::VAULTIFY;
 
-use super::anything_item::{Column, Something};
+use super::{
+    anything_item::{Column, Something},
+    custom_icon::{FileIcon, FolderIcon},
+};
 
 actions!(anything_table_action, [OpenSystemFolder, OpenSystemFile]);
 
@@ -28,10 +32,11 @@ impl AnythingTableDelegate {
         Self {
             anything: vec![],
             columns: vec![
-                Column::new("id", "ID", None),
+                Column::new("class", "Kind", None),
                 Column::new("name", "Name", None),
                 Column::new("path", "Path", Some(ColSort::Default)),
-                Column::new("usage", "Usage", Some(ColSort::Default)),
+                Column::new("size", "Size", Some(ColSort::Default)),
+                Column::new("last_modified_date", "Last Modified", None),
             ],
             col_order: true,
             col_sort: true,
@@ -45,28 +50,35 @@ impl AnythingTableDelegate {
         self.loading = false;
     }
 
-    fn render_value_cell(&self, val: f64, cx: &mut Context<Table<Self>>) -> AnyElement {
-        let (fg_scale, bg_scale, opacity) = match cx.theme().mode.is_dark() {
-            true => (200, 950, 0.3),
-            false => (600, 50, 0.6),
-        };
-
-        let this = div().h_full().child(format!("{:.3}", val));
-        // Val is a 0.0 .. n.0
-        // 30% to red, 30% to green, others to default
-        let right_num = ((val - val.floor()) * 1000.).floor() as i32;
-
-        let this = if right_num % 3 == 0 {
-            this.text_color(red(fg_scale))
-                .bg(red(bg_scale).opacity(opacity))
-        } else if right_num % 3 == 1 {
-            this.text_color(green(fg_scale))
-                .bg(green(bg_scale).opacity(opacity))
+    fn render_kind_cell(&self, kind: &SharedString, name: &SharedString) -> AnyElement {
+        if kind == "folder" {
+            return div()
+                .flex()
+                .items_center()
+                .justify_center()
+                .h_full()
+                .child(Icon::from(FolderIcon::from(
+                    MaterialIconFolder::from_folder_name(name),
+                )))
+                .into_any_element();
         } else {
-            this
-        };
+            div()
+                .flex()
+                .items_center()
+                .justify_center()
+                .h_full()
+                .child(Icon::from(FileIcon::from(
+                    MaterialIconFile::from_extension(kind),
+                )))
+                .into_any_element()
+        }
+    }
 
-        this.into_any_element()
+    fn render_value_cell(&self, size: f64) -> AnyElement {
+        div()
+            .h_full()
+            .child(format!("{:.1}", size))
+            .into_any_element()
     }
 }
 
@@ -88,14 +100,13 @@ impl TableDelegate for AnythingTableDelegate {
     }
 
     fn col_width(&self, col_ix: usize, _: &App) -> Pixels {
-        if col_ix == 0 {
-            40.0.into()
-        } else if col_ix == 1 {
-            200.0.into()
-        } else if col_ix == 2 {
-            600.0.into()
-        } else {
-            150.0.into()
+        match col_ix {
+            0 => 45.0.into(),
+            1 => 200.0.into(),
+            2 => 530.0.into(),
+            3 => 60.0.into(),
+            4 => 120.0.into(),
+            _ => 100.0.into(),
         }
     }
 
@@ -145,17 +156,17 @@ impl TableDelegate for AnythingTableDelegate {
         row_ix: usize,
         col_ix: usize,
         _: &mut Window,
-        cx: &mut Context<Table<Self>>,
+        _cx: &mut Context<Table<Self>>,
     ) -> impl IntoElement {
         let something = self.anything.get(row_ix).unwrap();
         let col = self.columns.get(col_ix).unwrap();
 
         match col.id.as_ref() {
-            // "id" => something.id.to_string().into_any_element(),
+            "class" => self.render_kind_cell(&something.class, &something.name),
             "name" => something.name.clone().into_any_element(),
             "path" => something.path.clone().into_any_element(),
-            "usage" => self.render_value_cell(something.usage, cx),
-
+            "size" => self.render_value_cell(something.size),
+            "last_modified_date" => something.last_modified_date.to_string().into_any_element(),
             _ => "--".to_string().into_any_element(),
         }
     }
@@ -186,7 +197,7 @@ impl TableDelegate for AnythingTableDelegate {
     fn perform_sort(
         &mut self,
         col_ix: usize,
-        sort: ColSort,
+        _sort: ColSort,
         _: &mut Window,
         _: &mut Context<Table<Self>>,
     ) {
@@ -194,21 +205,21 @@ impl TableDelegate for AnythingTableDelegate {
             return;
         }
 
-        if let Some(col) = self.columns.get_mut(col_ix) {
-            match col.id.as_ref() {
-                "path" => self.anything.sort_by(|a, b| match sort {
-                    ColSort::Descending => b.path.cmp(&a.path),
-                    _ => a.id.cmp(&b.id),
-                }),
-                "usage" => self.anything.sort_by(|a, b| match sort {
-                    ColSort::Descending => b
-                        .usage
-                        .partial_cmp(&a.usage)
-                        .unwrap_or(std::cmp::Ordering::Equal),
-                    _ => a.id.cmp(&b.id),
-                }),
-                _ => {}
-            }
+        if let Some(_col) = self.columns.get_mut(col_ix) {
+            // match col.id.as_ref() {
+            //     "path" => self.anything.sort_by(|a, b| match sort {
+            //         ColSort::Descending => b.path.cmp(&a.path),
+            //         _ => a.id.cmp(&b.id),
+            //     }),
+            //     "usage" => self.anything.sort_by(|a, b| match sort {
+            //         ColSort::Descending => b
+            //             .size
+            //             .partial_cmp(&a.size)
+            //             .unwrap_or(std::cmp::Ordering::Equal),
+            //         _ => a.id.cmp(&b.id),
+            //     }),
+            //     _ => {}
+            // }
         }
     }
 }
