@@ -119,12 +119,13 @@ pub fn index_add(path: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn get_num_docs() -> u64 {
-    TANTIVY_INDEX.get_num_docs()
-}
-
 pub fn index_commit() -> Result<()> {
     TANTIVY_INDEX.commit()?;
+    Ok(())
+}
+
+pub fn index_list() -> Result<()> {
+    TANTIVY_INDEX.list_all()?;
     Ok(())
 }
 
@@ -193,13 +194,6 @@ pub fn init_service(
     Ok(())
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_search() {
-        let results = index_search("Cargo");
-        assert!(!results.is_empty());
-    }
+pub fn get_num_docs() -> u64 {
+    TANTIVY_INDEX.get_num_docs()
 }

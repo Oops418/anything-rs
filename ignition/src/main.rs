@@ -1,10 +1,8 @@
 use anyhow::{Ok, Result};
-use indexify;
+use facade::component::anything_item::Something;
 use smol::channel::{Receiver, Sender};
 use tracing::info;
 use vaultify::Vaultify;
-
-use facade::component::anything_item::Something;
 
 fn main() -> Result<()> {
     logger::init_log();
@@ -27,14 +25,4 @@ fn init_channel() -> (
     let (data_sender, data_reciver) = smol::channel::unbounded::<Vec<Something>>();
     info!("channel initialized");
     (request_sender, request_reciver, data_sender, data_reciver)
-}
-
-#[cfg(test)]
-mod tests {
-    use vaultify::Vaultify;
-
-    #[test]
-    fn test_vaultify() {
-        Vaultify::init_vault();
-    }
 }

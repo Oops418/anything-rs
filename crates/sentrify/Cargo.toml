@@ -11,3 +11,11 @@ anyhow.workspace = true
 serde_json.workspace = true
 vaultify.workspace = true
 indexify.workspace = true
+logger.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+logger.workspace = true
+
+[features]
+mock = []

@@ -3,7 +3,8 @@ use std::{fs, path::Path, vec};
 use anyhow::Result;
 use directories::{ProjectDirs, UserDirs};
 use once_cell::sync::Lazy;
-use redb::{Database, Error, TableDefinition};
+use redb::{Database, Error, ReadableTable, TableDefinition};
+#[cfg(feature = "mock")]
 use tempfile::{NamedTempFile, tempdir};
 use tracing::{debug, info};
 
@@ -15,7 +16,7 @@ const TABLE_NAME: &str = "anything";
 pub static VAULTIFY: Lazy<Vaultify> = Lazy::new(|| {
     #[cfg(feature = "mock")]
     {
-        Vaultify::new_mock().expect("Failed to initialize mock Vaultify")
+        Vaultify::new().expect("Failed to initialize mock Vaultify")
     }
     #[cfg(not(feature = "mock"))]
     {
@@ -31,13 +32,14 @@ pub struct Vaultify {
 }
 
 impl Vaultify {
+    #[cfg(not(feature = "mock"))]
     fn new() -> Result<Self> {
         let (config_file, tantivy_path, _) = Self::get_directories()?;
         Self::setup(config_file, tantivy_path)
     }
 
-    #[allow(dead_code)]
-    fn new_mock() -> Result<Vaultify, anyhow::Error> {
+    #[cfg(feature = "mock")]
+    fn new() -> Result<Self> {
         let config_file = NamedTempFile::new()
             .unwrap()
             .path()
@@ -99,6 +101,7 @@ impl Vaultify {
         Self::init_config().expect("Failed to initialize vault configuration");
     }
 
+    #[cfg(not(feature = "mock"))]
     fn init_config() -> Result<()> {
         let user_dirs =
             UserDirs::new().ok_or_else(|| anyhow::anyhow!("Failed to get user directories"))?;
@@ -118,9 +121,11 @@ impl Vaultify {
         VAULTIFY.set("config_file", VAULTIFY.config_file.clone())?;
         VAULTIFY.set("tantivy_path", VAULTIFY.tantivy_path.clone())?;
         VAULTIFY.set("indexed", "false".to_string())?;
+        VAULTIFY.set("refresh", "false".to_string())?;
         VAULTIFY.set("default_include_path", "/".to_string())?;
         VAULTIFY.set("indexed_files", "0".to_string())?;
         VAULTIFY.set("indexed_progress", "0.0".to_string())?;
+        VAULTIFY.set("version", env!("CARGO_PKG_VERSION").to_string())?;
         VAULTIFY.set(
             "default_exclude_path",
             serde_json::to_string(&vec![
@@ -135,6 +140,27 @@ impl Vaultify {
                 picture_dir,
                 config_path.as_str(),
             ])?,
+        )?;
+        Ok(())
+    }
+
+    #[cfg(feature = "mock")]
+    fn init_config() -> Result<()> {
+        let user_dirs =
+            UserDirs::new().ok_or_else(|| anyhow::anyhow!("Failed to get user directories"))?;
+        let home_dir = user_dirs.home_dir().to_string_lossy().to_string();
+        VAULTIFY.set("home_dir", home_dir)?;
+        VAULTIFY.set("config_file", VAULTIFY.config_file.clone())?;
+        VAULTIFY.set("tantivy_path", VAULTIFY.tantivy_path.clone())?;
+        VAULTIFY.set("indexed", "false".to_string())?;
+        VAULTIFY.set("refresh", "false".to_string())?;
+        VAULTIFY.set("default_include_path", "/".to_string())?;
+        VAULTIFY.set("indexed_files", "0".to_string())?;
+        VAULTIFY.set("indexed_progress", "0.0".to_string())?;
+        VAULTIFY.set("version", env!("CARGO_PKG_VERSION").to_string())?;
+        VAULTIFY.set(
+            "default_exclude_path",
+            serde_json::to_string(&vec!["None"])?,
         )?;
         Ok(())
     }
@@ -167,15 +193,29 @@ impl Vaultify {
             debug!("Removed directory: {}", path);
         }
     }
+
+    pub fn list_all() -> Result<Vec<(String, String)>> {
+        let read_txn: redb::ReadTransaction = VAULTIFY.db.begin_read()?;
+        let table = read_txn.open_table(VAULTIFY.table_def)?;
+
+        let mut entries = Vec::new();
+        let mut iter = table.iter()?;
+        while let Some(entry) = iter.next() {
+            let (key, value) = entry?;
+            entries.push((key.value().to_string(), value.value().to_string()));
+        }
+        Ok(entries)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     #[cfg(not(feature = "mock"))]
-
-    fn test_vaultify() {
+    #[ignore]
+    fn clean_vaultify() {
         Vaultify::init_vault();
         let (_, _, config_path) = Vaultify::get_directories().expect("Failed to get directories");
         Vaultify::cleanup(config_path);
@@ -183,7 +223,7 @@ mod tests {
 
     #[test]
     #[cfg(feature = "mock")]
-    fn test_vaultify_mock() {
+    fn test_vaultify() {
         Vaultify::init_vault();
     }
 }

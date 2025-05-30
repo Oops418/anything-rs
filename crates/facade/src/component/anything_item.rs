@@ -2,6 +2,7 @@ use gpui::SharedString;
 
 use gpui_component::table::ColSort;
 
+#[derive(Debug)]
 pub struct Something {
     pub class: SharedString,
     pub path: SharedString,

@@ -11,7 +11,7 @@ This project is currently under active development in early development stage.
 The following items are currently on our development roadmap:
 
 - [ ] Fix menu name error
-- [ ] Fix cols_count
+- [ ] Fix cols sorting
 - [ ] Improve UI styling
 - [ ] Adjust UI color scheme(Nord Light theme in VSCode)
 - [ ] Fix index case sensitivity
@@ -20,7 +20,7 @@ The following items are currently on our development roadmap:
 - [ ] Add UI for custom included/excluded folders
 - [ ] Improve tokenizer
 - [ ] Improve search logic
-- [ ] Add comprehensive tests
 - [ ] Improve performance
-- [ ] Fix tantivy-jieba integration issues
-- [ ] Seems like it can not delete files in the index properly
+
+known issues:
+[Duplicated filesystem events](https://github.com/notify-rs/notify/issues/272) seem to be caused by the FSEvents API on macOS.

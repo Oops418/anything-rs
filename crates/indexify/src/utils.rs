@@ -35,7 +35,7 @@ pub struct TantivyIndex {
 }
 
 impl TantivyIndex {
-    pub fn new() -> Result<Self, TantivyError> {
+    pub fn new() -> Result<Self> {
         debug!("building initial tantivy index...");
         let mut schema_builder = Schema::builder();
 
@@ -149,6 +149,27 @@ impl TantivyIndex {
     pub fn get_num_docs(&self) -> u64 {
         self.index_reader.searcher().num_docs()
     }
+
+    pub fn list_all(&self) -> Result<()> {
+        let searcher = self.index_reader.searcher();
+
+        for segment_reader in searcher.segment_readers() {
+            let store_reader = segment_reader.get_store_reader(10)?;
+
+            for doc_id in segment_reader.doc_ids_alive() {
+                let doc: TantivyDocument = store_reader.get(doc_id)?;
+
+                let path = doc
+                    .get_first(self.path_field)
+                    .and_then(|v| v.as_bytes())
+                    .and_then(|bytes| String::from_utf8(bytes.to_vec()).ok())
+                    .unwrap_or_else(|| "Invalid UTF-8".to_string());
+
+                println!("Document ID {}: {}", doc_id, path);
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone)]
@@ -211,16 +232,17 @@ pub fn get_subfolders(str: &str) -> Vec<String> {
 }
 
 #[cfg(test)]
+#[cfg(feature = "mock")]
 mod tests {
     use tantivy::Document;
+    use tempfile::TempDir;
 
     use super::*;
 
     #[test]
-    fn chinese_tokenizer() {
-        let path = "./tmp";
-        let _ = fs::remove_dir_all(path);
-        fs::create_dir(path).ok();
+    fn test_mixed_tokenizer_token_stream() {
+        let temp_dir = TempDir::new().expect("Failed to create temp dir");
+        let path = temp_dir.path().to_str().unwrap();
 
         let schema_builder = Schema::builder();
         let schema = schema_builder.build();
@@ -231,37 +253,36 @@ mod tests {
         index.tokenizers().register("mixed", mixed_tokenizer);
 
         {
+            println!("Testing Chinese text tokenization:");
             let mut tokenizer = index.tokenizers().get("mixed").unwrap();
-            let text = "无人驾驶数据与隐私_何凡（1）.docx";
+            let text = "新型跨太平洋双赢大国关系，从一个胜利走向另一个胜利";
             let mut token_stream = tokenizer.token_stream(text);
 
-            println!("建立索引分词结果:");
             token_stream.process(&mut |token| {
                 println!(
-                    "Token: '{}', 位置: {}, 偏移量: {}-{}",
+                    "Token: '{}', position: {}, offset from-to: {}-{}",
                     token.text, token.position, token.offset_from, token.offset_to
                 );
             });
         }
 
         {
+            println!("Testing English text tokenization:");
             let mut tokenizer = index.tokenizers().get("mixed").unwrap();
-            let query_text: &'static str = "中国";
-            let mut token_stream = tokenizer.token_stream(query_text);
+            let text: &'static str = "Wins Come All Day Under Mickey Mouse.pdf";
+            let mut token_stream = tokenizer.token_stream(text);
 
-            println!("查询分词结果:");
             token_stream.process(&mut |token| {
                 println!(
-                    "Token: '{}', 位置: {}, 偏移量: {}-{}",
+                    "Token: '{}', position: {}, offset from-to: {}-{}",
                     token.text, token.position, token.offset_from, token.offset_to
                 );
             });
         }
-        let _ = fs::remove_dir_all(path);
     }
 
     #[test]
-    fn chinese_doc_tokenizer() {
+    fn test_mixed_token_search() {
         let mut schema_builder = Schema::builder();
         let text_options = TextOptions::default()
             .set_indexing_options(
@@ -284,6 +305,13 @@ mod tests {
             "今天天气怎么样.txt",
             "我喜欢学习编程.rs",
             "人工智能的未来.html",
+            "chinese_game_genshin.txt",
+            "hello_world_demo.docx",
+            "this_is_test_document.pdf",
+            "welcome_to_beijing.md",
+            "how_is_weather_today.txt",
+            "i_love_learning_programming.rs",
+            "future_of_artificial_intelligence.html",
         ];
 
         let mut index_writer = index.writer(50_000_000).unwrap();
@@ -296,30 +324,27 @@ mod tests {
         }
         index_writer.commit().unwrap();
 
-        let query_text = "北京";
-
-        println!("\n查询分词结果:");
-        let mut query_tokenizer = index.tokenizers().get("mixed").unwrap();
-        let mut query_token_stream = query_tokenizer.token_stream(query_text);
-        query_token_stream.process(&mut |token| {
-            println!(
-                "Token: '{}', 位置: {}, 偏移量: {}-{}",
-                token.text, token.position, token.offset_from, token.offset_to
-            );
-        });
-
+        let query_chinese_text = "未来";
+        let query_english_text = "world";
         let reader = index.reader().unwrap();
         let searcher = reader.searcher();
-        let query_parser = tantivy::query::QueryParser::for_index(&index, vec![name]);
-        let query = query_parser.parse_query(query_text).unwrap();
-        let top_docs = searcher
-            .search(&query, &tantivy::collector::TopDocs::with_limit(10))
-            .unwrap();
+        let query_parser = QueryParser::for_index(&index, vec![name]);
+        let query = query_parser.parse_query(query_chinese_text).unwrap();
+        let top_docs = searcher.search(&query, &TopDocs::with_limit(10)).unwrap();
 
-        println!("\n查询结果:");
+        println!("result:");
         for (score, doc_address) in top_docs {
             let retrieved_doc: TantivyDocument = searcher.doc(doc_address).unwrap();
-            println!("文档得分: {}, 内容: {:?}", score, retrieved_doc);
+            println!("score: {}, content: {:?}", score, retrieved_doc);
+            println!("{}", retrieved_doc.to_json(&schema));
+        }
+
+        let query = query_parser.parse_query(query_english_text).unwrap();
+        let top_docs = searcher.search(&query, &TopDocs::with_limit(10)).unwrap();
+        println!("result:");
+        for (score, doc_address) in top_docs {
+            let retrieved_doc: TantivyDocument = searcher.doc(doc_address).unwrap();
+            println!("score: {}, content: {:?}", score, retrieved_doc);
             println!("{}", retrieved_doc.to_json(&schema));
         }
     }

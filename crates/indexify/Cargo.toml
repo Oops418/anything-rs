@@ -12,9 +12,15 @@ tracing-subscriber.workspace = true
 serde_json.workspace = true
 tantivy.workspace = true
 smol.workspace = true
-tempfile.workspace = true
+
 anyhow.workspace = true
 time.workspace = true
 vaultify.workspace = true
 facade.workspace = true
 tantivy-jieba.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[features]
+mock = []
