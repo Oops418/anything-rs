@@ -112,7 +112,7 @@ impl Facade {
         let mut window_size = size(px(1600.0), px(1200.0));
         if let Some(display) = cx.primary_display() {
             let display_size = display.bounds().size;
-            window_size.width = window_size.width.min(display_size.width * 0.65);
+            window_size.width = window_size.width.min(display_size.width * 0.80);
             window_size.height = window_size.height.min(display_size.height * 0.65);
         }
         let window_bounds = Bounds::centered(None, window_size, cx);

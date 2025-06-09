@@ -34,9 +34,13 @@ impl AnythingTableDelegate {
             columns: vec![
                 Column::new("class", "Kind", None),
                 Column::new("name", "Name", None),
-                Column::new("path", "Path", Some(ColSort::Default)),
+                Column::new("path", "Path", None),
                 Column::new("size", "Size", Some(ColSort::Default)),
-                Column::new("last_modified_date", "Last Modified", None),
+                Column::new(
+                    "last_modified_date",
+                    "Last Modified",
+                    Some(ColSort::Default),
+                ),
             ],
             col_order: true,
             col_sort: true,
@@ -75,10 +79,17 @@ impl AnythingTableDelegate {
     }
 
     fn render_value_cell(&self, size: f64) -> AnyElement {
-        div()
-            .h_full()
-            .child(format!("{:.1}", size))
-            .into_any_element()
+        let formatted_size = if size >= 1024.0 * 1024.0 * 1024.0 {
+            format!("{:.1} GB", size / (1024.0 * 1024.0 * 1024.0))
+        } else if size >= 1024.0 * 1024.0 {
+            format!("{:.1} MB", size / (1024.0 * 1024.0))
+        } else if size >= 1024.0 {
+            format!("{:.1} KB", size / 1024.0)
+        } else {
+            format!("{:.0} B", size)
+        };
+
+        div().h_full().child(formatted_size).into_any_element()
     }
 }
 
@@ -102,9 +113,9 @@ impl TableDelegate for AnythingTableDelegate {
     fn col_width(&self, col_ix: usize, _: &App) -> Pixels {
         match col_ix {
             0 => 45.0.into(),
-            1 => 200.0.into(),
-            2 => 530.0.into(),
-            3 => 60.0.into(),
+            1 => 300.0.into(),
+            2 => 600.0.into(),
+            3 => 80.0.into(),
             4 => 120.0.into(),
             _ => 100.0.into(),
         }
@@ -197,7 +208,7 @@ impl TableDelegate for AnythingTableDelegate {
     fn perform_sort(
         &mut self,
         col_ix: usize,
-        _sort: ColSort,
+        sort: ColSort,
         _: &mut Window,
         _: &mut Context<Table<Self>>,
     ) {
@@ -205,21 +216,24 @@ impl TableDelegate for AnythingTableDelegate {
             return;
         }
 
-        if let Some(_col) = self.columns.get_mut(col_ix) {
-            // match col.id.as_ref() {
-            //     "path" => self.anything.sort_by(|a, b| match sort {
-            //         ColSort::Descending => b.path.cmp(&a.path),
-            //         _ => a.id.cmp(&b.id),
-            //     }),
-            //     "usage" => self.anything.sort_by(|a, b| match sort {
-            //         ColSort::Descending => b
-            //             .size
-            //             .partial_cmp(&a.size)
-            //             .unwrap_or(std::cmp::Ordering::Equal),
-            //         _ => a.id.cmp(&b.id),
-            //     }),
-            //     _ => {}
-            // }
+        if let Some(col) = self.columns.get_mut(col_ix) {
+            match col.id.as_ref() {
+                "size" => self.anything.sort_by(|a, b| match sort {
+                    ColSort::Descending => b
+                        .size
+                        .partial_cmp(&a.size)
+                        .unwrap_or(std::cmp::Ordering::Equal),
+                    _ => a
+                        .size
+                        .partial_cmp(&b.size)
+                        .unwrap_or(std::cmp::Ordering::Equal),
+                }),
+                "last_modified_date" => self.anything.sort_by(|a, b| match sort {
+                    ColSort::Descending => b.last_modified_date.cmp(&a.last_modified_date),
+                    _ => a.last_modified_date.cmp(&b.last_modified_date),
+                }),
+                _ => {}
+            }
         }
     }
 }

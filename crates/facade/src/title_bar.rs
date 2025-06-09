@@ -1,17 +1,21 @@
-use std::f32;
+use std::{f32, path::PathBuf};
 
 use gpui::{
-    AppContext, ClickEvent, Context, Entity, Hsla, InteractiveElement, IntoElement, MouseButton,
-    ParentElement, Render, SharedString, Styled, Subscription, Timer, Window, div,
-    prelude::FluentBuilder,
+    AppContext, ClickEvent, Context, Corner, Element, Entity, Hsla, InteractiveElement,
+    IntoElement, MouseButton, ParentElement, Pixels, Render, SharedString, Styled, Subscription,
+    Timer, Window, div, prelude::FluentBuilder, px,
 };
 use gpui_component::{
-    ActiveTheme, IconName, Sizable, Theme, ThemeMode, TitleBar,
+    ActiveTheme, ColorName, Icon, IconName, Sizable, Size, Theme, ThemeMode, TitleBar,
     button::{Button, ButtonVariants},
     color_picker::{ColorPickerEvent, ColorPickerState},
-    progress::Progress,
+    divider::Divider,
+    indicator::Indicator,
+    popover::{Popover, PopoverContent},
+    tag::Tag,
+    v_flex,
 };
-use tracing::debug;
+use tracing::{debug, trace};
 use vaultify::VAULTIFY;
 
 pub struct FacadeTitleBar {
@@ -38,7 +42,7 @@ impl FacadeTitleBar {
         cx.spawn(async move |this, cx| {
             loop {
                 this.update(cx, |this, cx| {
-                    debug!(
+                    trace!(
                         "the value of indexed files accessed by ui: {}",
                         this.index_files_count
                     );
@@ -48,7 +52,7 @@ impl FacadeTitleBar {
                         .unwrap()
                         .parse::<f32>()
                         .unwrap();
-                    debug!("indexed files: {}", this.index_files_count);
+                    trace!("indexed files: {}", this.index_files_count);
                     cx.notify();
                 })
                 .unwrap();
@@ -114,10 +118,26 @@ impl Render for FacadeTitleBar {
                         .child(div().text_sm().child(format!("{}", self.index_files_count)))
                         .child(
                             div()
-                                .w_24()
-                                .ml_2()
-                                .child(Progress::new().value(self.progress_value)),
-                        ),
+                                .child(
+                                    div().text_sm().child(format!(
+                                        "• {}%", 
+                                        if self.progress_value == 100.0 {
+                                            "100".to_string()
+                                        } else {
+                                            format!("{:.2}", self.progress_value)
+                                        }
+                                    ))
+                                )
+                                .mr(Pixels(-5.))
+                        )
+                        .child(
+                            if self.progress_value == 100.0 {
+                                div().child(Icon::new(IconName::Eye).with_size(Size::Small)).into_any_element()
+                                } else {
+                                        Indicator::new().small().into_any_element()
+                                }
+                            )
+
                 )
                 .child(
                     Button::new("theme-mode")
@@ -133,11 +153,59 @@ impl Render for FacadeTitleBar {
                         .on_click(cx.listener(Self::change_theme_mode)),
                 )
                 .child(
+                    Popover::new("refresh_popover")
+                        .anchor(Corner::TopRight)
+                        .trigger(
+                            Button::new("refresh")
+                                .icon(IconName::EyeOff)
+                                .small()
+                                .ghost(),
+                        )
+                        .content(|window, cx| {
+                            cx.new(|cx| {
+                                PopoverContent::new(window, cx, |_, _| {
+                                    v_flex()
+                                        .gap_4()
+                                        .w_80()
+                                        .child("Are you sure you want to refresh index now?")
+                                        .child(Divider::horizontal())
+                                        .child(
+                                            div()
+                                                .flex()
+                                                .justify_center()
+                                                .w_full()
+                                                .child(
+                                                    Button::new("refresh_info")
+                                                        .label("Yes")
+                                                        .w(px(80.))
+                                                        .on_click(|_, _, cx| {
+                                                            VAULTIFY
+                                                                .set("refresh", "true".to_string())
+                                                                .unwrap();
+                                                            cx.restart(Option::Some(PathBuf::from("/Users/kxyang/Personal/CodeSpaces/anything-rs/target/debug/ignition")));
+                                                        })
+                                                        .small(),
+                                                ),
+                                        )
+                                        .into_any()
+                                })
+                            })
+                        }),
+                )
+                // .child(
+                //     Button::new("Custom Path")
+                //         .icon(IconName::Eye)
+                //         .small()
+                //         .ghost()
+                //         .on_click(cx.listener(Self::change_theme_mode)),
+                // )
+                .child(
                     Button::new("github")
-                        .icon(IconName::GitHub)
                         .small()
                         .ghost()
-                        .on_click(|_, _, cx| cx.open_url("https://github.com/Oops418/anything-rs")),
+                        .text()
+                        .on_click(|_, _, cx| cx.open_url("https://github.com/Oops418/anything-rs"))
+                        .child(Tag::color(ColorName::Cyan).child("Beta")),
                 ),
         )
     }

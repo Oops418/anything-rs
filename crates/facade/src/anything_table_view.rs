@@ -12,7 +12,7 @@ use gpui_component::{
 };
 use smol::channel::{Receiver, Sender};
 
-use tracing::debug;
+use tracing::{debug, trace};
 use vaultify::VAULTIFY;
 
 use crate::component::{
@@ -58,7 +58,7 @@ impl TableView {
 
         cx.spawn(async move |this, cx| {
             while let Ok(data) = data_reciver.recv().await {
-                debug!("Background task received data: {:?}", data.len());
+                trace!("Background task received data: {:?}", data.len());
                 this.update(cx, |this, cx| {
                     this.table
                         .update(cx, |table: &mut Table<AnythingTableDelegate>, _| {
@@ -77,14 +77,14 @@ impl TableView {
                     .update(cx, |this, cx| {
                         this.table
                             .update(cx, |table: &mut Table<AnythingTableDelegate>, _| {
-                                debug!(
+                                trace!(
                                     "the value of indexed accessed by ui: {}",
                                     table.delegate().indexed
                                 );
                                 if !table.delegate().indexed {
                                     table.delegate_mut().indexed =
                                         string_to_bool(VAULTIFY.get("indexed").unwrap()).unwrap();
-                                    debug!("indexed status: {}", table.delegate().indexed);
+                                    trace!("indexed status: {}", table.delegate().indexed);
                                 }
                                 table.delegate().indexed
                             })
@@ -139,25 +139,28 @@ impl TableView {
     fn on_query_input_change(
         &mut self,
         _: &Entity<InputState>,
-        _event: &InputEvent,
+        event: &InputEvent,
         _: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if let InputEvent::Change(text) = _event {
-            let text = text.to_string().trim().to_string();
-            debug!("query input changed");
-            if text.is_empty() {
-                debug!("empty query");
-                self.table
-                    .update(cx, |table: &mut Table<AnythingTableDelegate>, _| {
-                        table.delegate_mut().replace_anything(vec![]);
-                    });
+        match event {
+            InputEvent::Change(text) => {
+                let text = text.to_string().trim().to_string();
+                debug!("query input changed");
+                if text.is_empty() {
+                    debug!("empty query");
+                    self.table
+                        .update(cx, |table: &mut Table<AnythingTableDelegate>, _| {
+                            table.delegate_mut().replace_anything(vec![]);
+                        });
+                    cx.notify();
+                    return;
+                }
+                self.request_sender.try_send(text.clone()).ok();
+                debug!("request sent: {}", text);
                 cx.notify();
-                return;
             }
-            self.request_sender.try_send(text.clone()).ok();
-            debug!("request sent: {}", text);
-            cx.notify();
+            _ => {}
         }
     }
 
