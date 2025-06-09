@@ -103,6 +103,8 @@ impl Vaultify {
 
     #[cfg(not(feature = "mock"))]
     fn init_config() -> Result<()> {
+        use std::time::{SystemTime, UNIX_EPOCH};
+
         let user_dirs =
             UserDirs::new().ok_or_else(|| anyhow::anyhow!("Failed to get user directories"))?;
         let home_dir = user_dirs.home_dir().to_string_lossy().to_string();
@@ -111,16 +113,21 @@ impl Vaultify {
             .ok_or_else(|| anyhow::anyhow!("Failed to get audio directory"))?
             .to_str()
             .expect("Failed to convert path to string with music_dir");
-        let picture_dir = user_dirs
+        let picture_dir: &str = user_dirs
             .picture_dir()
             .ok_or_else(|| anyhow::anyhow!("Failed to get picture directory"))?
             .to_str()
             .expect("Failed to convert path to string with picture_dir");
+        let current_time = SystemTime::now()
+            .duration_since(UNIX_EPOCH)?
+            .as_secs()
+            .to_string();
         let (_, _, config_path) = Vaultify::get_directories().expect("Failed to get directories");
         VAULTIFY.set("home_dir", home_dir)?;
         VAULTIFY.set("config_file", VAULTIFY.config_file.clone())?;
         VAULTIFY.set("tantivy_path", VAULTIFY.tantivy_path.clone())?;
         VAULTIFY.set("indexed", "false".to_string())?;
+        VAULTIFY.set("last_indexed", current_time)?;
         VAULTIFY.set("refresh", "false".to_string())?;
         VAULTIFY.set("default_include_path", "/".to_string())?;
         VAULTIFY.set("indexed_files", "0".to_string())?;
@@ -182,6 +189,18 @@ impl Vaultify {
         {
             let mut table = write_txn.open_table(self.table_def)?;
             table.insert(key, value)?;
+        }
+        write_txn.commit()?;
+        Ok(())
+    }
+
+    pub fn batch_set(&self, pairs: &[(&str, &str)]) -> Result<()> {
+        let write_txn = self.db.begin_write()?;
+        {
+            let mut table = write_txn.open_table(self.table_def)?;
+            for (key, value) in pairs {
+                table.insert(*key, value.to_string())?;
+            }
         }
         write_txn.commit()?;
         Ok(())

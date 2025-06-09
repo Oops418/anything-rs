@@ -1,6 +1,7 @@
 mod utils;
 
-use std::time::SystemTime;
+use std::path::Path;
+use std::time::{SystemTime, UNIX_EPOCH};
 use std::{fs, thread};
 
 use anyhow::Result;
@@ -11,16 +12,11 @@ use vaultify::VAULTIFY;
 
 use facade::component::anything_item::Something;
 
-pub fn index_files(path: &str, remain_exclude_path: &Vec<String>) {
+pub fn index_files(path: &str, remain_exclude_path: &Vec<String>, count_total: &mut u64) {
     let files = utils::get_files(path, remain_exclude_path).unwrap();
-    let mut conter = VAULTIFY
-        .get("indexed_files")
-        .unwrap()
-        .parse::<u64>()
-        .unwrap();
     debug!("begin indexing files from {}", path);
     for file in files {
-        conter += 1;
+        *count_total += 1;
         match file {
             Ok(file) => {
                 TANTIVY_INDEX
@@ -29,9 +25,11 @@ pub fn index_files(path: &str, remain_exclude_path: &Vec<String>) {
                         file.path().to_str().expect("Failed to get file path"),
                     )
                     .unwrap();
-                if conter % 3000 == 0 {
-                    VAULTIFY.set("indexed_files", conter.to_string()).unwrap();
-                    debug!("indexed {} files", conter);
+                if *count_total % 20000 == 0 {
+                    VAULTIFY
+                        .set("indexed_files", count_total.to_string())
+                        .unwrap();
+                    debug!("indexed {} files", count_total);
                 }
             }
             Err(e) => {
@@ -42,9 +40,9 @@ pub fn index_files(path: &str, remain_exclude_path: &Vec<String>) {
     }
     TANTIVY_INDEX.commit().unwrap();
     VAULTIFY
-        .set("indexed_files", get_num_docs().to_string())
+        .set("indexed_files", count_total.to_string())
         .unwrap();
-    debug!("indexed {} files", conter);
+    debug!("indexed {} files", count_total);
 }
 
 pub fn index_search(query: &str) -> Vec<Something> {
@@ -69,7 +67,7 @@ pub fn index_search(query: &str) -> Vec<Something> {
                     .unwrap_or_else(|| if metadata.is_dir() { "folder" } else { "file" })
                     .to_string();
 
-                let size = metadata.len() as f64 / (1024.0 * 1024.0);
+                let size = metadata.len() as f64;
 
                 let last_modified_date = metadata
                     .modified()
@@ -130,7 +128,7 @@ pub fn index_list() -> Result<()> {
 }
 
 pub fn init_index() -> Result<()> {
-    if VAULTIFY.get("indexed").unwrap() == "true" {
+    if get_indexed_status()? {
         info!("index already initialized, skipping");
         return Ok(());
     } else {
@@ -151,18 +149,28 @@ pub fn init_index() -> Result<()> {
 
         default_exclude_path.retain(|path| !excluded_paths.contains(path));
 
-        let mut count = 0.0;
+        let mut count_percent = 0.0;
+        let mut count_total: u64 = 0;
         let total_paths = remaining_paths.len();
         for (index, path) in remaining_paths.into_iter().enumerate() {
             debug!("processing path: {}", path);
-            index_files(path.as_str(), &default_exclude_path);
-            count = ((index + 1) as f64 / total_paths as f64) * 100.0;
-            VAULTIFY.set("indexed_progress", count.to_string())?;
+            index_files(path.as_str(), &default_exclude_path, &mut count_total);
+            count_percent = ((index + 1) as f64 / total_paths as f64) * 100.0;
+            VAULTIFY.set("indexed_progress", count_percent.to_string())?;
         }
-        debug!("completed processing all paths: {:.1}%", count);
+        debug!("completed processing all paths: {:.1}%", count_percent);
 
-        let duration = start.elapsed().unwrap();
-        VAULTIFY.set("indexed", "true".to_string()).unwrap();
+        let duration = start.elapsed()?;
+        VAULTIFY.set("indexed", "true".to_string())?;
+        VAULTIFY.set(
+            "last_indexed",
+            start
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs()
+                .to_string(),
+        )?;
+        VAULTIFY.set("indexed_files", get_num_docs().to_string())?;
         info!(
             "index initialized successfully in {} seconds",
             duration.as_secs()
@@ -196,4 +204,58 @@ pub fn init_service(
 
 pub fn get_num_docs() -> u64 {
     TANTIVY_INDEX.get_num_docs()
+}
+
+pub fn get_indexed_status() -> Result<bool> {
+    let current_version = env!("CARGO_PKG_VERSION");
+    let stored_version = VAULTIFY.get("version")?;
+
+    let current_time = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
+    let last_indexed = VAULTIFY.get("last_indexed")?.parse::<u64>()?;
+    let fifteen_days_in_seconds = 15 * 24 * 60 * 60;
+    let reset_index_state = || -> Result<()> {
+        let entries = [
+            ("indexed", "false"),
+            ("refresh", "false"),
+            ("indexed_files", "0"),
+            ("indexed_progress", "0.0"),
+        ];
+        VAULTIFY.batch_set(&entries)?;
+        let tantivy_path = VAULTIFY.get("tantivy_path")?;
+        if Path::new(&tantivy_path).exists() {
+            fs::remove_dir_all(&tantivy_path).expect("Failed to remove: directory");
+            debug!("Removed directory: {}", tantivy_path);
+        }
+        Ok(())
+    };
+
+    if current_time - last_indexed > fifteen_days_in_seconds {
+        reset_index_state()?;
+        return Ok(false);
+    }
+
+    if current_version != stored_version {
+        VAULTIFY.set("version", current_version.to_string())?;
+        reset_index_state()?;
+        debug!(
+            "reindexing due to version change: {} -> {}",
+            current_version, stored_version
+        );
+        return Ok(false);
+    }
+
+    if VAULTIFY.get("refresh")? == "true" {
+        reset_index_state()?;
+        debug!("reindexing due to refresh flag being true");
+        return Ok(false);
+    }
+
+    if VAULTIFY.get("indexed")? == "false" {
+        reset_index_state()?;
+        debug!("reindexing due to indexed flag being false");
+        return Ok(false);
+    }
+
+    debug!("index is up to date");
+    Ok(true)
 }

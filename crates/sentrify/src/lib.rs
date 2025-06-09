@@ -9,7 +9,7 @@ use std::{
     thread::{self},
     time::Duration,
 };
-use tracing::{Level, debug, span, warn};
+use tracing::{Level, debug, span, trace, warn};
 use vaultify::VAULTIFY;
 
 pub fn init_service() {
@@ -53,11 +53,10 @@ pub fn guard<P: AsRef<Path>>(path: P) -> Result<()> {
                             .iter()
                             .any(|exclude| path_str.starts_with(exclude))
                         {
-                            debug!("index skip: {}", path_str);
+                            trace!("index skip: {}", path_str);
                             continue;
                         }
                         count += 1;
-                        debug!("index add because Create: {}", path_str);
                         index_add(path_str)?;
                     }
                 }
@@ -70,7 +69,7 @@ pub fn guard<P: AsRef<Path>>(path: P) -> Result<()> {
                                 .iter()
                                 .any(|exclude| path_str.starts_with(exclude))
                             {
-                                debug!("index skip: {}", path_str);
+                                trace!("index skip: {}", path_str);
                                 continue;
                             }
 
@@ -92,25 +91,23 @@ pub fn guard<P: AsRef<Path>>(path: P) -> Result<()> {
                             .iter()
                             .any(|exclude| path_str.starts_with(exclude))
                         {
-                            debug!("index skip: {}", path_str);
+                            trace!("index skip: {}", path_str);
                             continue;
                         }
                         count += 1;
                         index_delete(path_str)?;
                     }
                 }
-                _ => {
-                    debug!("event but not handle: {:?}", event);
-                }
+                _ => {}
             },
             Err(error) => warn!("watch error: {:?}", error),
         }
-        if count == 500 {
+        if count == 1000 {
             index_commit()?;
             VAULTIFY
                 .set("indexed_files", get_num_docs().to_string())
                 .unwrap();
-            debug!("commit index batch: {}", count);
+            trace!("commit index batch: {}", count);
             count = 0;
         }
     }
