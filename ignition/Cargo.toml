@@ -19,3 +19,10 @@ vaultify.workspace = true
 logger.workspace = true
 facade.workspace = true
 sentrify.workspace = true
+
+[package.metadata.bundle]
+name = "Anything"
+identifier = "io.github.oops418.anything"
+icon = ["assets/images/icon.png"]
+category = "utilities"
+short_description = "A cross-platform file search tool built with Rust. Available for macOS, Linux, and soon for Windows."
