@@ -1,4 +1,4 @@
-use std::{f32, path::PathBuf};
+use std::{env, f32, path::PathBuf};
 
 use gpui::{
     AppContext, ClickEvent, Context, Corner, Element, Entity, Hsla, InteractiveElement,
@@ -118,26 +118,23 @@ impl Render for FacadeTitleBar {
                         .child(div().text_sm().child(format!("{}", self.index_files_count)))
                         .child(
                             div()
-                                .child(
-                                    div().text_sm().child(format!(
-                                        "• {}%", 
-                                        if self.progress_value == 100.0 {
-                                            "100".to_string()
-                                        } else {
-                                            format!("{:.2}", self.progress_value)
-                                        }
-                                    ))
-                                )
-                                .mr(Pixels(-5.))
+                                .child(div().text_sm().child(format!(
+                                    "• {}%",
+                                    if self.progress_value == 100.0 {
+                                        "100".to_string()
+                                    } else {
+                                        format!("{:.2}", self.progress_value)
+                                    }
+                                )))
+                                .mr(Pixels(-5.)),
                         )
-                        .child(
-                            if self.progress_value == 100.0 {
-                                div().child(Icon::new(IconName::Eye).with_size(Size::Small)).into_any_element()
-                                } else {
-                                        Indicator::new().small().into_any_element()
-                                }
-                            )
-
+                        .child(if self.progress_value == 100.0 {
+                            div()
+                                .child(Icon::new(IconName::Eye).with_size(Size::Small))
+                                .into_any_element()
+                        } else {
+                            Indicator::new().small().into_any_element()
+                        }),
                 )
                 .child(
                     Button::new("theme-mode")
@@ -170,22 +167,25 @@ impl Render for FacadeTitleBar {
                                         .child("Are you sure you want to refresh index now?")
                                         .child(Divider::horizontal())
                                         .child(
-                                            div()
-                                                .flex()
-                                                .justify_center()
-                                                .w_full()
-                                                .child(
-                                                    Button::new("refresh_info")
-                                                        .label("Yes")
-                                                        .w(px(80.))
-                                                        .on_click(|_, _, cx| {
-                                                            VAULTIFY
-                                                                .set("refresh", "true".to_string())
-                                                                .unwrap();
-                                                            cx.restart(Option::Some(PathBuf::from("/Users/kxyang/Personal/CodeSpaces/anything-rs/target/debug/ignition")));
-                                                        })
-                                                        .small(),
-                                                ),
+                                            div().flex().justify_center().w_full().child(
+                                                Button::new("refresh_info")
+                                                    .label("Yes")
+                                                    .w(px(80.))
+                                                    .on_click(|_, _, cx| {
+                                                        VAULTIFY
+                                                            .set("refresh", "true".to_string())
+                                                            .unwrap();
+                                                        if let Ok(current_exe) = env::current_exe()
+                                                        {
+                                                            cx.restart(Some(current_exe));
+                                                        } else {
+                                                            cx.restart(Some(PathBuf::from(
+                                                                "/Applications/Anything.app",
+                                                            )));
+                                                        }
+                                                    })
+                                                    .small(),
+                                            ),
                                         )
                                         .into_any()
                                 })

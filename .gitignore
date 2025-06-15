@@ -5,3 +5,10 @@ chinese/
 
 # Apple
 .DS_Store
+
+# Act
+act/
+build/
+
+# VS Code
+.vscode/
