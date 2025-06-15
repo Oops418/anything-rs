@@ -60,5 +60,4 @@ jobs:
         if: github.ref_type == 'tag'
         with:
           files: build/${{ vars.APP_NAME }}-aarch64.dmg
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GH_PAT }}
