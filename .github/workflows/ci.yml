@@ -2,8 +2,8 @@ name: ci
 
 on:
   push:
-    branches:
-      - main
+    tags:
+      - 'v*'
 
 env:
   CARGO_INCREMENTAL: 0
@@ -57,5 +57,6 @@ jobs:
 
       - name: Release
         uses: softprops/action-gh-release@v2
+        if: github.ref_type == 'tag'
         with:
           files: build/${{ vars.APP_NAME }}-aarch64.dmg
